@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/power"
@@ -65,7 +66,7 @@ func newPowerProfileManager(debug bool, status setTextable) *powerProfileManager
 		btnObjects = append(btnObjects, w)
 	}
 
-	ppm.bar = grid3(4, btnObjects...)
+	ppm.bar = container.New(&btnBar{}, btnObjects...)
 
 	// Connect to daemon asynchronously.
 	go ppm.connect(debug)
