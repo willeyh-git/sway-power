@@ -146,6 +146,9 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 			stopWatch()
 			pm.Close()
 		}()
+
+		// Block until the window closes.
+		select {}
 	}()
 
 	content := container.NewVBox(
