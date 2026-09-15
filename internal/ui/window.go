@@ -24,8 +24,6 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	app.Settings().SetTheme(CustomTheme())
 
 	window := app.NewWindow("Sway Power")
-	window.SetFixedSize(true)
-	window.Resize(fyne.NewSize(100, 140))
 
 	// Battery display
 	batContent, batDisplay := newBatteryDisplay(cfg)
@@ -47,7 +45,6 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 		powerMgr.labelText(), powerMgr.buttonBar(), lidMgr.labelText(), lidMgr.buttonBar())
 
 	window.SetContent(layout.Container())
-	window.Resize(fyne.NewSize(400, 180))
 
 	// Battery updates
 	go func() {
