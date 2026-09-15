@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -19,6 +20,57 @@ type Colors struct {
 	Charging string `yaml:"charging"`
 	Warning  string `yaml:"warning"`
 	Critical string `yaml:"critical"`
+}
+
+// Validate checks that every configured color is a valid #RRGGBB hex color.
+// Empty values are treated as "unset" and fall back to the defaults.
+func (c Colors) Validate() error {
+	fields := []struct {
+		key   string
+		value string
+	}{
+		{"track", c.Track},
+		{"normal", c.Normal},
+		{"charging", c.Charging},
+		{"warning", c.Warning},
+		{"critical", c.Critical},
+	}
+
+	for _, f := range fields {
+		if f.value == "" {
+			continue
+		}
+
+		if !isValidHexColor(f.value) {
+			return fmt.Errorf("colors.%s: invalid color %q", f.key, f.value)
+		}
+	}
+
+	return nil
+}
+
+// Validate checks all config values that can be wrong without being
+// syntactically invalid YAML.
+func (c Config) Validate() error {
+	return c.Colors.Validate()
+}
+
+// isValidHexColor reports whether value is a 6-digit hex color, optionally
+// prefixed with '#'. This is the format the UI renders; anything else is
+// rejected so a typo fails at startup instead of turning the UI gray.
+func isValidHexColor(value string) bool {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "#")
+	if len(value) != 6 {
+		return false
+	}
+
+	for _, r := range value {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
+			return false
+		}
+	}
+
+	return true
 }
 
 func Default() Config {
@@ -63,6 +115,10 @@ func Load() (Config, error) {
 	}
 
 	merge(&config, fileConfig)
+
+	if err := config.Validate(); err != nil {
+		return config, fmt.Errorf("config: %w", err)
+	}
 
 	return config, nil
 }
