@@ -12,11 +12,20 @@ import (
 
 type Config struct {
 	Colors    Colors     `yaml:"colors"`
+	UI        UIColors   `yaml:"ui"`
 	LidClose  LidClose   `yaml:"lid_close"`
 }
 
 type LidClose struct {
 	Action string `yaml:"action"`
+}
+
+type UIColors struct {
+	Label     string `yaml:"label"`
+	Value     string `yaml:"value"`
+	Icon      string `yaml:"icon"`
+	Title     string `yaml:"title"`
+	Category  string `yaml:"category"`
 }
 
 // Validate checks that the lid close action is valid.
@@ -67,10 +76,40 @@ func (c Colors) Validate() error {
 	return nil
 }
 
+// Validate checks that every configured UI color is a valid #RRGGBB hex color.
+// Empty values are treated as "unset" and fall back to the defaults.
+func (u UIColors) Validate() error {
+	fields := []struct {
+		key   string
+		value string
+	}{
+		{"label", u.Label},
+		{"value", u.Value},
+		{"icon", u.Icon},
+		{"title", u.Title},
+		{"category", u.Category},
+	}
+
+	for _, f := range fields {
+		if f.value == "" {
+			continue
+		}
+
+		if !isValidHexColor(f.value) {
+			return fmt.Errorf("ui.%s: invalid color %q", f.key, f.value)
+		}
+	}
+
+	return nil
+}
+
 // Validate checks all config values that can be wrong without being
 // syntactically invalid YAML.
 func (c Config) Validate() error {
 	if err := c.Colors.Validate(); err != nil {
+		return err
+	}
+	if err := c.UI.Validate(); err != nil {
 		return err
 	}
 	return c.LidClose.Validate()
@@ -102,6 +141,13 @@ func Default() Config {
 			Charging: "#50aaff",
 			Warning:  "#f0b43c",
 			Critical: "#e64646",
+		},
+		UI: UIColors{
+			Label:     "#565656",   // Dark gray for light mode
+			Value:     "#000000",   // Black for values
+			Icon:      "#000000",   // Black for icons
+			Title:     "#000000",   // Black for titles
+			Category:  "#000000",   // Black for category labels
 		},
 		LidClose: LidClose{
 			Action: "lock", // default: lock screen when lid closes
@@ -166,6 +212,26 @@ func merge(dst *Config, src Config) {
 
 	if src.Colors.Critical != "" {
 		dst.Colors.Critical = src.Colors.Critical
+	}
+
+	if src.UI.Label != "" {
+		dst.UI.Label = src.UI.Label
+	}
+
+	if src.UI.Value != "" {
+		dst.UI.Value = src.UI.Value
+	}
+
+	if src.UI.Icon != "" {
+		dst.UI.Icon = src.UI.Icon
+	}
+
+	if src.UI.Title != "" {
+		dst.UI.Title = src.UI.Title
+	}
+
+	if src.UI.Category != "" {
+		dst.UI.Category = src.UI.Category
 	}
 
 	if src.LidClose.Action != "" {

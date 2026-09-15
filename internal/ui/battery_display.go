@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/battery"
+	"github.com/willeyh-git/sway-power/internal/config"
 )
 
 // emaSmooth applies exponential moving average smoothing to a time.Duration.
@@ -83,7 +84,7 @@ type batteryDisplay struct {
 	lastStatus battery.Status
 }
 
-func newBatteryDisplay() (*fyne.Container, *batteryDisplay) {
+func newBatteryDisplay(cfg config.Config) (*fyne.Container, *batteryDisplay) {
 	header := widget.RichTextStyle{SizeName: HeadingSize}
 	headerBold := widget.RichTextStyle{
 		SizeName:  HeadingSize,
@@ -97,8 +98,8 @@ func newBatteryDisplay() (*fyne.Container, *batteryDisplay) {
 
 	// Header: [icon] Battery [percentage%]
 	iconSize := theme.Size(HeadingSize)
-	icon := canvas.NewText("󰁹", theme.Color(theme.ColorNameForeground))
-	icon.TextStyle = fyne.TextStyle{Monospace: true}
+	icon := canvas.NewText("󰁹", parseHexColor(cfg.UI.Icon))
+	icon.TextStyle = fyne.TextStyle{Monospace: true, Bold: true}
 	icon.TextSize = iconSize
 	percentage := newRichTextLabel("", headerBold)
 	title := newRichTextLabel("Battery", header)
@@ -114,7 +115,7 @@ func newBatteryDisplay() (*fyne.Container, *batteryDisplay) {
 	rateValue := newRichTextLabel("", smallBold)
 
 	// Header row: icon | Battery(grows) | percentage
-	headerRow := container.New(&flexRow{growIdx: 1}, icon, title.Object(), percentage.Object())
+	headerRow := container.New(&flexRow{growIdx: 1, gap: 4}, icon, title.Object(), percentage.Object())
 
 	// Grid rows: label left, value right
 	row1 := container.New(&labelValue{}, sizeLabel.Object(), sizeValue.Object())
@@ -123,7 +124,7 @@ func newBatteryDisplay() (*fyne.Container, *batteryDisplay) {
 	row4 := container.New(&labelValue{}, rateLabel.Object(), rateValue.Object())
 
 	// 2x2 grid
-	grid := container.New(&grid2x2{}, row1, row2, row3, row4)
+	grid := container.New(&grid2x2{colGap: 20}, row1, row2, row3, row4)
 
 	// Stack header and grid
 	content := container.NewVBox(headerRow, grid)

@@ -7,8 +7,10 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/willeyh-git/sway-power/internal/config"
 	"github.com/willeyh-git/sway-power/internal/lid"
 	"github.com/willeyh-git/sway-power/internal/lid/action"
 	"github.com/willeyh-git/sway-power/internal/preferences"
@@ -23,7 +25,7 @@ type lidCloseButtons struct {
 	btns      []*lidCloseBtn
 	bar       *fyne.Container
 	status    setTextable
-	label     *widget.Label
+	label     fyne.CanvasObject
 	current   string
 	stopWatch func()
 }
@@ -34,7 +36,7 @@ type lidCloseBtn struct {
 	circle *canvas.Circle
 }
 
-func newLidCloseButtons(debug bool, status setTextable) *lidCloseButtons {
+func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidCloseButtons {
 	actions := []struct {
 		id    string
 		label string
@@ -57,9 +59,13 @@ func newLidCloseButtons(debug bool, status setTextable) *lidCloseButtons {
 	mgr := &lidCloseButtons{
 		actions: actions,
 		status:  status,
-		label:   widget.NewLabel("Lid Settings"),
+		label:   canvas.NewText("Lid Settings", parseHexColor(cfg.UI.Category)),
 		current: current,
 	}
+	mgr.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
+	mgr.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
+	mgr.label.(*canvas.Text).Alignment = fyne.TextAlignCenter
+	mgr.label.(*canvas.Text).Color = parseHexColor(cfg.UI.Category)
 
 	var btnObjects []fyne.CanvasObject
 	for i, a := range actions {
@@ -156,6 +162,6 @@ func (mgr *lidCloseButtons) buttonBar() *fyne.Container {
 	return mgr.bar
 }
 
-func (mgr *lidCloseButtons) labelText() *widget.Label {
+func (mgr *lidCloseButtons) labelText() fyne.CanvasObject {
 	return mgr.label
 }

@@ -8,8 +8,10 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/willeyh-git/sway-power/internal/config"
 	"github.com/willeyh-git/sway-power/internal/power"
 )
 
@@ -25,7 +27,7 @@ type powerProfileManager struct {
 	btns      []*profileBtn
 	bar       *fyne.Container
 	status    setTextable
-	label     *widget.Label
+	label     fyne.CanvasObject
 	pm        *power.Manager
 	stopWatch func()
 }
@@ -36,7 +38,7 @@ type profileBtn struct {
 	circle *canvas.Circle
 }
 
-func newPowerProfileManager(debug bool, status setTextable) *powerProfileManager {
+func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *powerProfileManager {
 	profiles := []struct {
 		id    string
 		label string
@@ -49,8 +51,12 @@ func newPowerProfileManager(debug bool, status setTextable) *powerProfileManager
 	ppm := &powerProfileManager{
 		profiles: profiles,
 		status:   status,
-		label:    widget.NewLabel("Power Profile"),
+		label:    canvas.NewText("Power Profile", parseHexColor(cfg.UI.Category)),
 	}
+	ppm.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
+	ppm.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
+	ppm.label.(*canvas.Text).Alignment = fyne.TextAlignCenter
+	ppm.label.(*canvas.Text).Color = parseHexColor(cfg.UI.Category)
 
 	var btnObjects []fyne.CanvasObject
 	for i, p := range profiles {
@@ -142,7 +148,7 @@ func (mgr *powerProfileManager) buttonBar() *fyne.Container {
 	return mgr.bar
 }
 
-func (mgr *powerProfileManager) labelText() *widget.Label {
+func (mgr *powerProfileManager) labelText() fyne.CanvasObject {
 	return mgr.label
 }
 

@@ -3,7 +3,10 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -48,4 +51,27 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%dh", h)
 	}
 	return fmt.Sprintf("%dh %dmin", h, m)
+}
+
+// parseHexColor parses a hex color string (with or without # prefix) into a color.NRGBA.
+func parseHexColor(hex string) color.NRGBA {
+	hex = strings.TrimPrefix(hex, "#")
+	if len(hex) != 6 {
+		return color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xff}
+	}
+
+	r, err := strconv.ParseInt(hex[0:2], 16, 64)
+	if err != nil {
+		return color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xff}
+	}
+	g, err := strconv.ParseInt(hex[2:4], 16, 64)
+	if err != nil {
+		return color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xff}
+	}
+	b, err := strconv.ParseInt(hex[4:6], 16, 64)
+	if err != nil {
+		return color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xff}
+	}
+
+	return color.NRGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 0xff}
 }

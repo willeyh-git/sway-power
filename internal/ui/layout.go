@@ -74,6 +74,7 @@ func (l *Layout) Container() *fyne.Container {
 // growIdx is the index of the child that should grow.
 type flexRow struct {
 	growIdx int
+	gap     float32
 }
 
 func (l *flexRow) Layout(children []fyne.CanvasObject, size fyne.Size) {
@@ -81,6 +82,9 @@ func (l *flexRow) Layout(children []fyne.CanvasObject, size fyne.Size) {
 	for i, child := range children {
 		if i != l.growIdx {
 			fixedWidth += child.MinSize().Width
+			if i < l.growIdx {
+				fixedWidth += l.gap
+			}
 		}
 	}
 
@@ -103,6 +107,9 @@ func (l *flexRow) Layout(children []fyne.CanvasObject, size fyne.Size) {
 		y := (size.Height - minSize.Height) / 2
 		child.Move(fyne.NewPos(x, y))
 		x += childWidth
+		if i < l.growIdx {
+			x += l.gap
+		}
 	}
 }
 
@@ -187,17 +194,19 @@ func (l *btnBar) MinSize(children []fyne.CanvasObject) fyne.Size {
 }
 
 // grid2x2 lays out 4 children in a 2x2 grid.
-type grid2x2 struct{}
+type grid2x2 struct {
+	colGap float32
+}
 
 func (l *grid2x2) Layout(children []fyne.CanvasObject, size fyne.Size) {
-	colW := size.Width / 2
+	colW := (size.Width - l.colGap) / 2
 	rowH := size.Height / 2
 
 	for i, child := range children {
 		minSize := child.MinSize()
 		col := i % 2
 		row := i / 2
-		x := float32(col) * colW
+		x := float32(col)*(colW+l.colGap)
 		y := float32(row) * rowH
 		child.Resize(fyne.NewSize(colW, minSize.Height))
 		child.Move(fyne.NewPos(x, y))
@@ -215,5 +224,5 @@ func (l *grid2x2) MinSize(children []fyne.CanvasObject) fyne.Size {
 			maxH = minSize.Height
 		}
 	}
-	return fyne.NewSize(maxW * 2, maxH * 2)
+	return fyne.NewSize(maxW*2+l.colGap, maxH*2)
 }

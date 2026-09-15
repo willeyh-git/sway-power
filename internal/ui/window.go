@@ -28,7 +28,7 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	window.Resize(fyne.NewSize(100, 140))
 
 	// Battery display
-	batContent, batDisplay := newBatteryDisplay()
+	batContent, batDisplay := newBatteryDisplay(cfg)
 
 	// Shared status line
 	status := newRichTextLabel("", widget.RichTextStyle{
@@ -37,10 +37,10 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	})
 
 	// Power profile buttons
-	powerMgr := newPowerProfileManager(debug, status)
+	powerMgr := newPowerProfileManager(debug, cfg, status)
 
 	// Lid close buttons
-	lidMgr := newLidCloseButtons(debug, status)
+	lidMgr := newLidCloseButtons(debug, cfg, status)
 
 	// Layout owns all spacing
 	layout := NewLayout(batContent, status.Object(), widget.NewSeparator(),
