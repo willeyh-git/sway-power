@@ -76,10 +76,14 @@ func (l *Layout) Container() *fyne.Container {
 		spacer2,
 		l.lidBar,
 	)
-	return &fyne.Container{
+
+	// Wrap in padded container
+	padded := &fyne.Container{
 		Layout:  &paddedLayout{},
 		Objects: []fyne.CanvasObject{inner},
 	}
+
+	return container.NewMax(padded)
 }
 
 // flexRow lays out children in a row, with one child growing.

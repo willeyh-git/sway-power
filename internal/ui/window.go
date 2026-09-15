@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/battery"
@@ -44,7 +46,11 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	layout := NewLayout(batContent, status.Object(), widget.NewSeparator(),
 		powerMgr.labelText(), powerMgr.buttonBar(), lidMgr.labelText(), lidMgr.buttonBar())
 
-	window.SetContent(layout.Container())
+	// Set content with background
+	bg := canvas.NewRectangle(parseHexColor(cfg.UI.Background))
+	bg.Resize(fyne.NewSize(400, 180))
+	content := layout.Container()
+	window.SetContent(container.NewMax(bg, content))
 
 	// Battery updates
 	go func() {
