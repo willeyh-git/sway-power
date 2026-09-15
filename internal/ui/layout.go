@@ -35,9 +35,27 @@ func NewLayout(batContent *fyne.Container, status fyne.CanvasObject, separator f
 	}
 }
 
-// Container returns the root container.
+// paddedLayout applies 4px padding on all sides.
+type paddedLayout struct{}
+
+func (l *paddedLayout) Layout(children []fyne.CanvasObject, size fyne.Size) {
+	padding := float32(4)
+	for _, child := range children {
+		child.Resize(fyne.NewSize(size.Width-2*padding, size.Height-2*padding))
+		child.Move(fyne.NewPos(padding, padding))
+	}
+}
+
+func (l *paddedLayout) MinSize(children []fyne.CanvasObject) fyne.Size {
+	if len(children) == 0 {
+		return fyne.NewSize(0, 0)
+	}
+	return children[0].MinSize()
+}
+
+// Container returns the root container with 4px padding on all sides.
 func (l *Layout) Container() *fyne.Container {
-	return container.NewVBox(
+	inner := container.NewVBox(
 		l.batContent,
 		l.status,
 		l.separator,
@@ -46,6 +64,10 @@ func (l *Layout) Container() *fyne.Container {
 		l.lidLabel,
 		l.lidBar,
 	)
+	return &fyne.Container{
+		Layout:  &paddedLayout{},
+		Objects: []fyne.CanvasObject{inner},
+	}
 }
 
 // flexRow lays out children in a row, with one child growing.
