@@ -87,3 +87,33 @@ func TestConfigValidateReportsField(t *testing.T) {
 		t.Fatalf("got %q, want substring %q", got, want)
 	}
 }
+
+func TestLidCloseValidate(t *testing.T) {
+	validActions := []string{"lock", "sleep", "nothing"}
+	for _, action := range validActions {
+		t.Run("valid "+action, func(t *testing.T) {
+			lc := LidClose{Action: action}
+			if err := lc.Validate(); err != nil {
+				t.Fatalf("expected no error for %q, got %v", action, err)
+			}
+		})
+	}
+
+	t.Run("empty action is valid", func(t *testing.T) {
+		lc := LidClose{}
+		if err := lc.Validate(); err != nil {
+			t.Fatalf("expected no error for empty action, got %v", err)
+		}
+	})
+
+	t.Run("rejects invalid action", func(t *testing.T) {
+		lc := LidClose{Action: "invalid"}
+		err := lc.Validate()
+		if err == nil {
+			t.Fatal("expected error for invalid action")
+		}
+		if got := err.Error(); !strings.Contains(got, `lid_close.action: invalid action "invalid"`) {
+			t.Fatalf("got %q, want substring %q", got, `invalid action "invalid"`)
+		}
+	})
+}

@@ -39,6 +39,9 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	// Power profile buttons.
 	powerMgr := newPowerProfileManager(debug, status)
 
+	// Lid close buttons.
+	lidMgr := newLidCloseButtons(debug, status)
+
 	content := container.NewVBox(
 		widget.NewLabel("Battery"),
 		percentage,
@@ -46,6 +49,7 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 		status,
 		widget.NewSeparator(),
 		powerMgr.buttonBar(),
+		lidMgr.buttonBar(),
 	)
 
 	window.SetContent(container.NewCenter(content))

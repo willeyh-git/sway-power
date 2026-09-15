@@ -11,7 +11,25 @@ import (
 )
 
 type Config struct {
-	Colors Colors `yaml:"colors"`
+	Colors    Colors     `yaml:"colors"`
+	LidClose  LidClose   `yaml:"lid_close"`
+}
+
+type LidClose struct {
+	Action string `yaml:"action"`
+}
+
+// Validate checks that the lid close action is valid.
+func (l LidClose) Validate() error {
+	if l.Action == "" {
+		return nil // empty is OK — means "don't handle it"
+	}
+	switch l.Action {
+	case "lock", "sleep", "nothing":
+		return nil
+	default:
+		return fmt.Errorf("lid_close.action: invalid action %q (valid: lock, sleep, nothing)", l.Action)
+	}
 }
 
 type Colors struct {
@@ -52,7 +70,10 @@ func (c Colors) Validate() error {
 // Validate checks all config values that can be wrong without being
 // syntactically invalid YAML.
 func (c Config) Validate() error {
-	return c.Colors.Validate()
+	if err := c.Colors.Validate(); err != nil {
+		return err
+	}
+	return c.LidClose.Validate()
 }
 
 // isValidHexColor reports whether value is a 6-digit hex color, optionally
@@ -81,6 +102,9 @@ func Default() Config {
 			Charging: "#50aaff",
 			Warning:  "#f0b43c",
 			Critical: "#e64646",
+		},
+		LidClose: LidClose{
+			Action: "lock", // default: lock screen when lid closes
 		},
 	}
 }
@@ -142,5 +166,9 @@ func merge(dst *Config, src Config) {
 
 	if src.Colors.Critical != "" {
 		dst.Colors.Critical = src.Colors.Critical
+	}
+
+	if src.LidClose.Action != "" {
+		dst.LidClose.Action = src.LidClose.Action
 	}
 }

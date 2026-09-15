@@ -32,17 +32,22 @@ func (e *emaSmooth) update(newVal time.Duration) time.Duration {
 	return e.value
 }
 
+// setTextable is an interface for widgets that can have their text set.
+type setTextable interface {
+	SetText(string)
+}
+
 // batteryDisplay handles battery percentage, status, and time-left display.
 type batteryDisplay struct {
 	percentage *widget.Label
-	status     *widget.Label
+	status     setTextable
 	widget     *BatteryWidget
 	ema        *emaSmooth
 }
 
 func newBatteryDisplay(
 	percentage *widget.Label,
-	status *widget.Label,
+	status setTextable,
 	batWidget *BatteryWidget,
 ) *batteryDisplay {
 	return &batteryDisplay{

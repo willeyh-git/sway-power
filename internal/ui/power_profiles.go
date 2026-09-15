@@ -24,7 +24,7 @@ type powerProfileManager struct {
 	profiles  []struct{ id, label string }
 	btns      []*profileBtn
 	bar       *fyne.Container
-	status    *widget.Label
+	status    setTextable
 	pm        *power.Manager
 	stopWatch func()
 }
@@ -35,7 +35,7 @@ type profileBtn struct {
 	circle *canvas.Circle
 }
 
-func newPowerProfileManager(debug bool, status *widget.Label) *powerProfileManager {
+func newPowerProfileManager(debug bool, status setTextable) *powerProfileManager {
 	profiles := []struct {
 		id    string
 		label string
