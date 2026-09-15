@@ -20,6 +20,9 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 		os.Setenv("FYNE_SCALE", fmt.Sprintf("%.2f", scale))
 	}
 
+	// Set custom theme
+	app.Settings().SetTheme(CustomTheme())
+
 	window := app.NewWindow("Sway Power")
 	window.SetFixedSize(true)
 	window.Resize(fyne.NewSize(100, 140))
