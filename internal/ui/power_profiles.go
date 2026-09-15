@@ -29,6 +29,7 @@ type powerProfileManager struct {
 	stopWatch    func()
 	bgColor      color.NRGBA
 	activeColor  color.NRGBA
+	accentColor  color.NRGBA
 }
 
 type profileBtn struct {
@@ -52,6 +53,7 @@ func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *
 		label:       canvas.NewText("Power Profile", parseHexColor(cfg.UI.Category)),
 		bgColor:     parseHexColor(cfg.UI.Background),
 		activeColor: parseHexColor(cfg.UI.Active),
+		accentColor: parseHexColor(cfg.UI.Accent),
 	}
 	ppm.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	ppm.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
@@ -60,7 +62,7 @@ func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *
 
 	var btnObjects []fyne.CanvasObject
 	for i, p := range profiles {
-		w := newToggleButtonWidget(p.label, false, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), parseHexColor(cfg.UI.Active), parseHexColor(cfg.UI.Background))
+		w := newToggleButtonWidget(p.label, false, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), parseHexColor(cfg.UI.Active), parseHexColor(cfg.UI.Background), parseHexColor(cfg.UI.Accent))
 		btn := &profileBtn{
 			widget: w,
 			label:  w.label,
@@ -94,22 +96,23 @@ func (mgr *powerProfileManager) connect(debug bool) {
 	// Sync buttons to current profile.
 	active, _ := p.ActiveProfile()
 	fyne.Do(func() {
-		mgr.updateButtons(active, mgr.bgColor, mgr.activeColor)
+		mgr.updateButtons(active, mgr.bgColor, mgr.activeColor, mgr.accentColor)
 	})
 
 	// Watch for external profile changes.
 	stopWatch := p.WatchActiveProfile(debug, func(profile string) {
 		fyne.Do(func() {
-			mgr.updateButtons(profile, mgr.bgColor, mgr.activeColor)
+			mgr.updateButtons(profile, mgr.bgColor, mgr.activeColor, mgr.accentColor)
 		})
 	})
 	mgr.stopWatch = stopWatch
 }
 
-func (mgr *powerProfileManager) updateButtons(active string, bgColor color.NRGBA, activeColor color.NRGBA) {
+func (mgr *powerProfileManager) updateButtons(active string, bgColor color.NRGBA, activeColor color.NRGBA, accentColor color.NRGBA) {
 	for i, p := range mgr.profiles {
 		if p.id == active {
-			mgr.btns[i].widget.background.FillColor = activeColor
+			mgr.btns[i].widget.background.FillColor = accentColor
+			mgr.btns[i].widget.label.Color = color.White // White text on accent background
 		} else {
 			mgr.btns[i].widget.background.FillColor = bgColor
 		}
@@ -130,7 +133,7 @@ func (mgr *powerProfileManager) setProfile(idx int, prof string) {
 		return
 	}
 	fyne.Do(func() {
-		mgr.updateButtons(prof, mgr.bgColor, mgr.activeColor)
+		mgr.updateButtons(prof, mgr.bgColor, mgr.activeColor, mgr.accentColor)
 	})
 }
 

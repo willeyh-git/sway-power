@@ -18,7 +18,7 @@ type toggleButtonWidget struct {
 	OnTap      func()
 }
 
-func newToggleButtonWidget(label string, active bool, borderColor, labelColor, activeColor, bgColor color.NRGBA) *toggleButtonWidget {
+func newToggleButtonWidget(label string, active bool, borderColor, labelColor, activeColor, bgColor, accentColor color.NRGBA) *toggleButtonWidget {
 	background := canvas.NewRectangle(bgColor)
 	border := canvas.NewRectangle(borderColor)
 	labelWidget := canvas.NewText(label, labelColor)
@@ -32,6 +32,9 @@ func newToggleButtonWidget(label string, active bool, borderColor, labelColor, a
 	w.ExtendBaseWidget(w)
 
 	if active {
+		background.FillColor = accentColor
+		labelWidget.Color = color.White // White text on accent background
+	} else {
 		background.FillColor = activeColor
 	}
 

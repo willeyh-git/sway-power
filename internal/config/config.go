@@ -29,6 +29,7 @@ type UIColors struct {
 	Border     string `yaml:"border"`
 	Background string `yaml:"background"`
 	Active     string `yaml:"active"`
+	Accent     string `yaml:"accent"`
 }
 
 // Validate checks that the lid close action is valid.
@@ -94,6 +95,7 @@ func (u UIColors) Validate() error {
 		{"border", u.Border},
 		{"background", u.Background},
 		{"active", u.Active},
+		{"accent", u.Accent},
 	}
 
 	for _, f := range fields {
@@ -157,6 +159,7 @@ func Default() Config {
 			Border:     "#c0c0c0",   // Subtle gray for borders
 			Background: "#ffffff",   // White for canvas background
 			Active:     "#d0d0d0",   // Subtle gray for active buttons
+			Accent:     "#c6a0f6",   // Mauve for active button highlight
 		},
 		LidClose: LidClose{
 			Action: "lock", // default: lock screen when lid closes
@@ -253,6 +256,10 @@ func merge(dst *Config, src Config) {
 
 	if src.UI.Active != "" {
 		dst.UI.Active = src.UI.Active
+	}
+
+	if src.UI.Accent != "" {
+		dst.UI.Accent = src.UI.Accent
 	}
 
 	if src.LidClose.Action != "" {

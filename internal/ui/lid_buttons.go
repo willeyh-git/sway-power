@@ -30,6 +30,7 @@ type lidCloseButtons struct {
 	stopWatch   func()
 	bgColor     color.NRGBA
 	activeColor color.NRGBA
+	accentColor color.NRGBA
 }
 
 type lidCloseBtn struct {
@@ -64,6 +65,7 @@ func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidC
 		current:     current,
 		bgColor:     parseHexColor(cfg.UI.Background),
 		activeColor: parseHexColor(cfg.UI.Active),
+		accentColor: parseHexColor(cfg.UI.Accent),
 	}
 	mgr.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	mgr.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
@@ -72,7 +74,7 @@ func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidC
 
 	var btnObjects []fyne.CanvasObject
 	for i, a := range actions {
-		w := newToggleButtonWidget(a.label, a.id == current, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), parseHexColor(cfg.UI.Active), parseHexColor(cfg.UI.Background))
+		w := newToggleButtonWidget(a.label, a.id == current, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), parseHexColor(cfg.UI.Active), parseHexColor(cfg.UI.Background), parseHexColor(cfg.UI.Accent))
 		btn := &lidCloseBtn{
 			widget: w,
 			label:  w.label,
@@ -136,7 +138,8 @@ func (mgr *lidCloseButtons) setAction(idx int, act string) {
 	// Update buttons.
 	for i, a := range mgr.actions {
 		if a.id == act {
-			mgr.btns[i].widget.background.FillColor = mgr.activeColor
+			mgr.btns[i].widget.background.FillColor = mgr.accentColor
+			mgr.btns[i].widget.label.Color = color.White // White text on accent background
 		} else {
 			mgr.btns[i].widget.background.FillColor = mgr.bgColor
 		}
