@@ -21,9 +21,6 @@ type toggleButtonWidget struct {
 func newToggleButtonWidget(label string, active bool, borderColor, labelColor, activeColor color.NRGBA) *toggleButtonWidget {
 	background := canvas.NewRectangle(theme.Color(theme.ColorNameBackground))
 	border := canvas.NewRectangle(borderColor)
-	border.StrokeWidth = 2
-	border.StrokeColor = borderColor
-	border.FillColor = color.Transparent
 	labelWidget := canvas.NewText(label, labelColor)
 	labelWidget.TextSize = theme.Size(SmallSize)
 	labelWidget.TextStyle = fyne.TextStyle{Bold: true}
@@ -65,9 +62,10 @@ type toggleButtonRenderer struct {
 }
 
 func (r *toggleButtonRenderer) Layout(size fyne.Size) {
-	// Resize border to fill the entire widget
-	r.widget.border.Resize(size)
-	r.widget.border.Move(fyne.NewPos(0, 0))
+	// Resize border to fill the entire widget (slightly larger to account for stroke)
+	borderSize := fyne.NewSize(size.Width+2, size.Height+2)
+	r.widget.border.Resize(borderSize)
+	r.widget.border.Move(fyne.NewPos(-1, -1))
 
 	// Resize background to fill the entire widget
 	r.widget.background.Resize(size)
