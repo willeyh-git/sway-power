@@ -26,6 +26,7 @@ type UIColors struct {
 	Icon      string `yaml:"icon"`
 	Title     string `yaml:"title"`
 	Category  string `yaml:"category"`
+	Border    string `yaml:"border"`
 }
 
 // Validate checks that the lid close action is valid.
@@ -88,6 +89,7 @@ func (u UIColors) Validate() error {
 		{"icon", u.Icon},
 		{"title", u.Title},
 		{"category", u.Category},
+		{"border", u.Border},
 	}
 
 	for _, f := range fields {
@@ -148,6 +150,7 @@ func Default() Config {
 			Icon:      "#000000",   // Black for icons
 			Title:     "#000000",   // Black for titles
 			Category:  "#000000",   // Black for category labels
+			Border:    "#565656",   // Dark gray for borders
 		},
 		LidClose: LidClose{
 			Action: "lock", // default: lock screen when lid closes
@@ -232,6 +235,10 @@ func merge(dst *Config, src Config) {
 
 	if src.UI.Category != "" {
 		dst.UI.Category = src.UI.Category
+	}
+
+	if src.UI.Border != "" {
+		dst.UI.Border = src.UI.Border
 	}
 
 	if src.LidClose.Action != "" {

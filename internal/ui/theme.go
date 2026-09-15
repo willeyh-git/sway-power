@@ -13,6 +13,10 @@ type myTheme struct{}
 var _ fyne.Theme = (*myTheme)(nil)
 
 func (m *myTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	// Always use light theme for consistent appearance
+	if variant == theme.VariantDark {
+		variant = theme.VariantLight
+	}
 	return theme.DefaultTheme().Color(name, variant)
 }
 

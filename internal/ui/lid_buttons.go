@@ -30,7 +30,7 @@ type lidCloseButtons struct {
 }
 
 type lidCloseBtn struct {
-	widget *lidCloseButtonWidget
+	widget *toggleButtonWidget
 	label  *canvas.Text
 }
 
@@ -67,7 +67,7 @@ func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidC
 
 	var btnObjects []fyne.CanvasObject
 	for i, a := range actions {
-		w := newLidCloseButtonWidget(a.label, a.id == current)
+		w := newToggleButtonWidget(a.label, a.id == current, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), activeColor)
 		btn := &lidCloseBtn{
 			widget: w,
 			label:  w.label,
@@ -133,7 +133,7 @@ func (mgr *lidCloseButtons) setAction(idx int, act string) {
 		if a.id == act {
 			mgr.btns[i].widget.background.FillColor = activeColor
 		} else {
-			mgr.btns[i].widget.background.FillColor = inactiveColor
+			mgr.btns[i].widget.background.FillColor = theme.Color(theme.ColorNameBackground)
 		}
 	}
 	for _, b := range mgr.btns {

@@ -1,15 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"image/color"
-	"os"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/config"
 	"github.com/willeyh-git/sway-power/internal/power"
@@ -33,7 +30,7 @@ type powerProfileManager struct {
 }
 
 type profileBtn struct {
-	widget *profileButtonWidget
+	widget *toggleButtonWidget
 	label  *canvas.Text
 }
 
@@ -59,7 +56,7 @@ func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *
 
 	var btnObjects []fyne.CanvasObject
 	for i, p := range profiles {
-		w := newProfileButtonWidget(p.label, false)
+		w := newToggleButtonWidget(p.label, false, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), activeColor)
 		btn := &profileBtn{
 			widget: w,
 			label:  w.label,
@@ -110,7 +107,7 @@ func (mgr *powerProfileManager) updateButtons(active string) {
 		if p.id == active {
 			mgr.btns[i].widget.background.FillColor = activeColor
 		} else {
-			mgr.btns[i].widget.background.FillColor = inactiveColor
+			mgr.btns[i].widget.background.FillColor = theme.Color(theme.ColorNameBackground)
 		}
 	}
 	for _, b := range mgr.btns {
@@ -149,87 +146,3 @@ func (mgr *powerProfileManager) buttonBar() *fyne.Container {
 func (mgr *powerProfileManager) labelText() fyne.CanvasObject {
 	return mgr.label
 }
-
-// profileButtonWidget is a clickable widget with a solid rectangular background.
-type profileButtonWidget struct {
-	widget.BaseWidget
-	label        *canvas.Text
-	background   *canvas.Rectangle
-	OnTap        func()
-}
-
-func newProfileButtonWidget(label string, active bool) *profileButtonWidget {
-	background := canvas.NewRectangle(inactiveColor)
-	labelWidget := canvas.NewText(label, theme.Color(theme.ColorNameForeground))
-	labelWidget.TextSize = theme.Size(SmallSize)
-	labelWidget.TextStyle = fyne.TextStyle{Bold: true}
-
-	w := &profileButtonWidget{
-		label:        labelWidget,
-		background:   background,
-	}
-	w.ExtendBaseWidget(w)
-
-	if active {
-		background.FillColor = activeColor
-	}
-
-	return w
-}
-
-func (w *profileButtonWidget) CreateRenderer() fyne.WidgetRenderer {
-	return &profileButtonRenderer{
-		widget: w,
-		objects: []fyne.CanvasObject{
-			w.background,
-			w.label,
-		},
-	}
-}
-
-func (w *profileButtonWidget) Tapped(_ *fyne.PointEvent) {
-	fmt.Fprintf(os.Stderr, "[ui] button tapped\n")
-	if w.OnTap != nil {
-		w.OnTap()
-	}
-}
-
-type profileButtonRenderer struct {
-	widget  *profileButtonWidget
-	objects []fyne.CanvasObject
-}
-
-func (r *profileButtonRenderer) Layout(size fyne.Size) {
-	// Resize background to fill the entire widget
-	r.widget.background.Resize(size)
-	r.widget.background.Move(fyne.NewPos(0, 0))
-
-	// Center label in the background
-	labelMin := r.widget.label.MinSize()
-	labelX := (size.Width - labelMin.Width) / 2
-	labelY := (size.Height - labelMin.Height) / 2
-	r.widget.label.Move(fyne.NewPos(labelX, labelY))
-	r.widget.label.Resize(labelMin)
-}
-
-func (r *profileButtonRenderer) MinSize() fyne.Size {
-	labelMin := r.widget.label.MinSize()
-	return fyne.NewSize(labelMin.Width+20, labelMin.Height+10)
-}
-
-func (r *profileButtonRenderer) Objects() []fyne.CanvasObject {
-	return r.objects
-}
-
-func (r *profileButtonRenderer) Refresh() {
-	r.Layout(r.widget.Size())
-	r.widget.background.Refresh()
-	r.widget.label.Refresh()
-}
-
-func (r *profileButtonRenderer) Destroy() {}
-
-func (r *profileButtonRenderer) Hovered()     {}
-func (r *profileButtonRenderer) Unhovered()   {}
-func (r *profileButtonRenderer) FocusGained() {}
-func (r *profileButtonRenderer) FocusLost()   {}
