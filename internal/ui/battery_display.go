@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -77,6 +77,7 @@ func (l *richTextLabel) Object() fyne.CanvasObject {
 // a battery icon, title and percentage in large text, followed by a
 // two-by-two grid of details in small text where the values are bold.
 type batteryDisplay struct {
+	icon       *canvas.Text
 	percentage *richTextLabel
 	sizeValue  *richTextLabel
 	timeLabel  *richTextLabel
@@ -101,9 +102,14 @@ func newBatteryDisplay() (*fyne.Container, *batteryDisplay) {
 	}
 
 	// Header: [ icon ] Battery        78%
+	// Use 4x the heading font size for the icon
+	iconSize := theme.Size(theme.SizeNameHeadingText)
+	icon := canvas.NewText("󰁹", theme.Color(theme.ColorNameForeground))
+	icon.TextStyle = fyne.TextStyle{Monospace: true}
+	icon.TextSize = iconSize
 	percentage := newRichTextLabel("", headerBold)
 	title := newRichTextLabel("Battery", header)
-	headerBar := container.NewHBox(newBatteryIcon(), title.Object(), layout.NewSpacer(), percentage.Object())
+	headerBar := container.NewHBox(icon, title.Object(), percentage.Object())
 
 	// Grid: labels are regular, values are bold.
 	sizeLabel := newRichTextLabel("Battery size:  ", small)
@@ -122,9 +128,10 @@ func newBatteryDisplay() (*fyne.Container, *batteryDisplay) {
 		container.NewHBox(rateLabel.Object(), rateValue.Object()),
 	)
 
-	content := container.NewVBox(headerBar, grid)
+	content := container.NewVBox(container.NewCenter(headerBar), grid)
 
 	return content, &batteryDisplay{
+		icon:       icon,
 		percentage: percentage,
 		sizeValue:  sizeValue,
 		timeLabel:  timeLabel,
@@ -150,6 +157,7 @@ func (d *batteryDisplay) update(bat *battery.Battery, err error) {
 	}
 
 	d.percentage.SetText(fmt.Sprintf("%d%%", bat.Percentage))
+	d.setIcon(bat.Percentage, bat.Status)
 
 	if bat.SizeWh > 0 {
 		d.sizeValue.SetText(fmt.Sprintf("%d Wh", int(math.Round(bat.SizeWh))))
@@ -194,6 +202,48 @@ func (d *batteryDisplay) update(bat *battery.Battery, err error) {
 		d.rateValue.SetText(fmt.Sprintf("%.1f W", bat.RateW))
 	} else {
 		d.rateValue.SetText("")
+	}
+}
+
+// iconLevels maps battery charge levels to Nerd Font icons, from empty to full.
+var iconLevels = []string{
+	"󰁺", // 0%
+	"󰁻", // ~10%
+	"󰁼", // ~20%
+	"󰁽", // ~30%
+	"󰁾", // ~40%
+	"󰁿", // ~50%
+	"󰂀", // ~60%
+	"󰂁", // ~70%
+	"󰂂", // ~80%
+	"󰁹", // ~90-100%
+}
+
+func (d *batteryDisplay) setIcon(percentage int, status battery.Status) {
+	switch status {
+	case battery.StatusCharging:
+		d.icon.Text = "󰂄"
+	case battery.StatusFull:
+		d.icon.Text = "󰚥"
+	case battery.StatusNotCharging, battery.StatusUnknown:
+		d.icon.Text = "󰚥"
+	default:
+		idx := percentage / 10
+		if idx >= len(iconLevels) {
+			idx = len(iconLevels) - 1
+		}
+		if idx < 0 {
+			idx = 0
+		}
+		d.icon.Text = iconLevels[idx]
+	}
+}
+
+// iconLargeStyle returns a RichTextStyle that's 4x the heading font size.
+func iconLargeStyle(baseSize float32) widget.RichTextStyle {
+	return widget.RichTextStyle{
+		SizeName:  theme.SizeNameHeadingText,
+		TextStyle: fyne.TextStyle{Monospace: true},
 	}
 }
 
