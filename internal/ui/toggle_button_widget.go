@@ -18,8 +18,8 @@ type toggleButtonWidget struct {
 	OnTap      func()
 }
 
-func newToggleButtonWidget(label string, active bool, borderColor, labelColor, activeColor color.NRGBA) *toggleButtonWidget {
-	background := canvas.NewRectangle(theme.Color(theme.ColorNameBackground))
+func newToggleButtonWidget(label string, active bool, borderColor, labelColor, activeColor, bgColor color.NRGBA) *toggleButtonWidget {
+	background := canvas.NewRectangle(bgColor)
 	border := canvas.NewRectangle(borderColor)
 	labelWidget := canvas.NewText(label, labelColor)
 	labelWidget.TextSize = theme.Size(SmallSize)

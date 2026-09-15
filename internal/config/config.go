@@ -21,12 +21,14 @@ type LidClose struct {
 }
 
 type UIColors struct {
-	Label     string `yaml:"label"`
-	Value     string `yaml:"value"`
-	Icon      string `yaml:"icon"`
-	Title     string `yaml:"title"`
-	Category  string `yaml:"category"`
-	Border    string `yaml:"border"`
+	Label      string `yaml:"label"`
+	Value      string `yaml:"value"`
+	Icon       string `yaml:"icon"`
+	Title      string `yaml:"title"`
+	Category   string `yaml:"category"`
+	Border     string `yaml:"border"`
+	Background string `yaml:"background"`
+	Active     string `yaml:"active"`
 }
 
 // Validate checks that the lid close action is valid.
@@ -90,6 +92,8 @@ func (u UIColors) Validate() error {
 		{"title", u.Title},
 		{"category", u.Category},
 		{"border", u.Border},
+		{"background", u.Background},
+		{"active", u.Active},
 	}
 
 	for _, f := range fields {
@@ -145,12 +149,14 @@ func Default() Config {
 			Critical: "#e64646",
 		},
 		UI: UIColors{
-			Label:     "#565656",   // Dark gray for light mode
-			Value:     "#000000",   // Black for values
-			Icon:      "#000000",   // Black for icons
-			Title:     "#000000",   // Black for titles
-			Category:  "#000000",   // Black for category labels
-			Border:    "#c0c0c0",   // Subtle gray for borders
+			Label:      "#565656",   // Dark gray for light mode
+			Value:      "#000000",   // Black for values
+			Icon:       "#000000",   // Black for icons
+			Title:      "#000000",   // Black for titles
+			Category:   "#000000",   // Black for category labels
+			Border:     "#c0c0c0",   // Subtle gray for borders
+			Background: "#ffffff",   // White for canvas background
+			Active:     "#d0d0d0",   // Subtle gray for active buttons
 		},
 		LidClose: LidClose{
 			Action: "lock", // default: lock screen when lid closes
@@ -239,6 +245,14 @@ func merge(dst *Config, src Config) {
 
 	if src.UI.Border != "" {
 		dst.UI.Border = src.UI.Border
+	}
+
+	if src.UI.Background != "" {
+		dst.UI.Background = src.UI.Background
+	}
+
+	if src.UI.Active != "" {
+		dst.UI.Active = src.UI.Active
 	}
 
 	if src.LidClose.Action != "" {

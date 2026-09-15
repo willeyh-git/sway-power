@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"os"
 
 	"fyne.io/fyne/v2"
@@ -17,16 +18,18 @@ import (
 
 // lidCloseButtons handles lid close action selection.
 type lidCloseButtons struct {
-	actions []struct {
+	actions     []struct {
 		id    string
 		label string
 	}
-	btns      []*lidCloseBtn
-	bar       *fyne.Container
-	status    setTextable
-	label     fyne.CanvasObject
-	current   string
-	stopWatch func()
+	btns        []*lidCloseBtn
+	bar         *fyne.Container
+	status      setTextable
+	label       fyne.CanvasObject
+	current     string
+	stopWatch   func()
+	bgColor     color.NRGBA
+	activeColor color.NRGBA
 }
 
 type lidCloseBtn struct {
@@ -55,10 +58,12 @@ func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidC
 	current := prefs.LidClose
 
 	mgr := &lidCloseButtons{
-		actions: actions,
-		status:  status,
-		label:   canvas.NewText("Lid Settings", parseHexColor(cfg.UI.Category)),
-		current: current,
+		actions:     actions,
+		status:      status,
+		label:       canvas.NewText("Lid Settings", parseHexColor(cfg.UI.Category)),
+		current:     current,
+		bgColor:     parseHexColor(cfg.UI.Background),
+		activeColor: parseHexColor(cfg.UI.Active),
 	}
 	mgr.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	mgr.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
@@ -67,7 +72,7 @@ func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidC
 
 	var btnObjects []fyne.CanvasObject
 	for i, a := range actions {
-		w := newToggleButtonWidget(a.label, a.id == current, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), activeColor)
+		w := newToggleButtonWidget(a.label, a.id == current, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), parseHexColor(cfg.UI.Active), parseHexColor(cfg.UI.Background))
 		btn := &lidCloseBtn{
 			widget: w,
 			label:  w.label,
@@ -131,9 +136,9 @@ func (mgr *lidCloseButtons) setAction(idx int, act string) {
 	// Update buttons.
 	for i, a := range mgr.actions {
 		if a.id == act {
-			mgr.btns[i].widget.background.FillColor = activeColor
+			mgr.btns[i].widget.background.FillColor = mgr.activeColor
 		} else {
-			mgr.btns[i].widget.background.FillColor = theme.Color(theme.ColorNameBackground)
+			mgr.btns[i].widget.background.FillColor = mgr.bgColor
 		}
 	}
 	for _, b := range mgr.btns {

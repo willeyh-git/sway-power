@@ -20,13 +20,15 @@ var (
 
 // powerProfileManager handles power profile buttons and D-Bus connection.
 type powerProfileManager struct {
-	profiles  []struct{ id, label string }
-	btns      []*profileBtn
-	bar       *fyne.Container
-	status    setTextable
-	label     fyne.CanvasObject
-	pm        *power.Manager
-	stopWatch func()
+	profiles     []struct{ id, label string }
+	btns         []*profileBtn
+	bar          *fyne.Container
+	status       setTextable
+	label        fyne.CanvasObject
+	pm           *power.Manager
+	stopWatch    func()
+	bgColor      color.NRGBA
+	activeColor  color.NRGBA
 }
 
 type profileBtn struct {
@@ -45,9 +47,11 @@ func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *
 	}
 
 	ppm := &powerProfileManager{
-		profiles: profiles,
-		status:   status,
-		label:    canvas.NewText("Power Profile", parseHexColor(cfg.UI.Category)),
+		profiles:    profiles,
+		status:      status,
+		label:       canvas.NewText("Power Profile", parseHexColor(cfg.UI.Category)),
+		bgColor:     parseHexColor(cfg.UI.Background),
+		activeColor: parseHexColor(cfg.UI.Active),
 	}
 	ppm.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	ppm.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
@@ -56,7 +60,7 @@ func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *
 
 	var btnObjects []fyne.CanvasObject
 	for i, p := range profiles {
-		w := newToggleButtonWidget(p.label, false, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), activeColor)
+		w := newToggleButtonWidget(p.label, false, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), parseHexColor(cfg.UI.Active), parseHexColor(cfg.UI.Background))
 		btn := &profileBtn{
 			widget: w,
 			label:  w.label,
@@ -90,24 +94,24 @@ func (mgr *powerProfileManager) connect(debug bool) {
 	// Sync buttons to current profile.
 	active, _ := p.ActiveProfile()
 	fyne.Do(func() {
-		mgr.updateButtons(active)
+		mgr.updateButtons(active, mgr.bgColor, mgr.activeColor)
 	})
 
 	// Watch for external profile changes.
 	stopWatch := p.WatchActiveProfile(debug, func(profile string) {
 		fyne.Do(func() {
-			mgr.updateButtons(profile)
+			mgr.updateButtons(profile, mgr.bgColor, mgr.activeColor)
 		})
 	})
 	mgr.stopWatch = stopWatch
 }
 
-func (mgr *powerProfileManager) updateButtons(active string) {
+func (mgr *powerProfileManager) updateButtons(active string, bgColor color.NRGBA, activeColor color.NRGBA) {
 	for i, p := range mgr.profiles {
 		if p.id == active {
 			mgr.btns[i].widget.background.FillColor = activeColor
 		} else {
-			mgr.btns[i].widget.background.FillColor = theme.Color(theme.ColorNameBackground)
+			mgr.btns[i].widget.background.FillColor = bgColor
 		}
 	}
 	for _, b := range mgr.btns {
@@ -126,7 +130,7 @@ func (mgr *powerProfileManager) setProfile(idx int, prof string) {
 		return
 	}
 	fyne.Do(func() {
-		mgr.updateButtons(prof)
+		mgr.updateButtons(prof, mgr.bgColor, mgr.activeColor)
 	})
 }
 
