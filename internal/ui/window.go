@@ -31,10 +31,12 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	percentage.Alignment = fyne.TextAlignCenter
 	status := widget.NewLabel("")
 	status.Alignment = fyne.TextAlignCenter
+	detail := widget.NewLabel("")
+	detail.Alignment = fyne.TextAlignCenter
 	batWidget := NewBatteryWidget(cfg.Colors, nil)
 
 	// Battery display logic (with EMA smoothing).
-	batDisplay := newBatteryDisplay(percentage, status, batWidget)
+	batDisplay := newBatteryDisplay(percentage, status, detail, batWidget)
 
 	// Power profile buttons.
 	powerMgr := newPowerProfileManager(debug, status)
@@ -47,13 +49,14 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 		percentage,
 		batWidget,
 		status,
+		detail,
 		widget.NewSeparator(),
 		powerMgr.buttonBar(),
 		lidMgr.buttonBar(),
 	)
 
 	window.SetContent(container.NewCenter(content))
-	window.Resize(fyne.NewSize(400, 240))
+	window.Resize(fyne.NewSize(400, 260))
 
 	// Battery updates: first one shortly after mapping, then every 5 seconds.
 	go func() {
