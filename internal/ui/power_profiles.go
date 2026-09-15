@@ -55,7 +55,7 @@ func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *
 	}
 	ppm.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	ppm.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
-	ppm.label.(*canvas.Text).Alignment = fyne.TextAlignCenter
+	ppm.label.(*canvas.Text).Alignment = fyne.TextAlignLeading
 	ppm.label.(*canvas.Text).Color = parseHexColor(cfg.UI.Category)
 
 	var btnObjects []fyne.CanvasObject

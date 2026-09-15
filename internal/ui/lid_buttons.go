@@ -64,7 +64,7 @@ func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidC
 	}
 	mgr.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	mgr.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
-	mgr.label.(*canvas.Text).Alignment = fyne.TextAlignCenter
+	mgr.label.(*canvas.Text).Alignment = fyne.TextAlignLeading
 	mgr.label.(*canvas.Text).Color = parseHexColor(cfg.UI.Category)
 
 	var btnObjects []fyne.CanvasObject
