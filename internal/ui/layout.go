@@ -154,7 +154,7 @@ func (l *labelValue) MinSize(children []fyne.CanvasObject) fyne.Size {
 	return fyne.NewSize(totalW, maxH)
 }
 
-// btnBar lays out 3 buttons in a 1x3 grid with equal column widths.
+// btnBar lays out 3 buttons in a 1x3 grid with equal column widths and 10px gaps.
 type btnBar struct{}
 
 func (l *btnBar) Layout(children []fyne.CanvasObject, size fyne.Size) {
@@ -163,7 +163,9 @@ func (l *btnBar) Layout(children []fyne.CanvasObject, size fyne.Size) {
 		return
 	}
 
-	colW := size.Width / float32(n)
+	const gap = 4
+	totalGap := float32(gap) * float32(n-1)
+	colW := (size.Width - totalGap) / float32(n)
 
 	var maxH float32
 	for _, child := range children {
@@ -177,15 +179,19 @@ func (l *btnBar) Layout(children []fyne.CanvasObject, size fyne.Size) {
 		minSize := child.MinSize()
 		child.Resize(fyne.NewSize(colW, minSize.Height))
 		child.Move(fyne.NewPos(x, (maxH-minSize.Height)/2))
-		x += colW
+		x += colW + gap
 	}
 }
 
 func (l *btnBar) MinSize(children []fyne.CanvasObject) fyne.Size {
+	const gap = 10
 	var totalW, maxH float32
-	for _, child := range children {
-		minSize := child.MinSize()
+	for idx := range children {
+		minSize := children[idx].MinSize()
 		totalW += minSize.Width
+		if idx < len(children)-1 {
+			totalW += gap
+		}
 		if minSize.Height > maxH {
 			maxH = minSize.Height
 		}
@@ -206,7 +212,7 @@ func (l *grid2x2) Layout(children []fyne.CanvasObject, size fyne.Size) {
 		minSize := child.MinSize()
 		col := i % 2
 		row := i / 2
-		x := float32(col)*(colW+l.colGap)
+		x := float32(col) * (colW + l.colGap)
 		y := float32(row) * rowH
 		child.Resize(fyne.NewSize(colW, minSize.Height))
 		child.Move(fyne.NewPos(x, y))
