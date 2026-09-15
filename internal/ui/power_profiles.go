@@ -7,7 +7,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/power"
@@ -45,13 +44,12 @@ func newPowerProfileManager(debug bool, status setTextable) *powerProfileManager
 		{power.ProfilePerformance, "Performance"},
 	}
 
-	bar := container.NewHBox()
-
 	ppm := &powerProfileManager{
 		profiles: profiles,
 		status:   status,
 	}
 
+	var btnObjects []fyne.CanvasObject
 	for i, p := range profiles {
 		w := newProfileButtonWidget(p.label, false)
 		btn := &profileBtn{
@@ -64,10 +62,10 @@ func newPowerProfileManager(debug bool, status setTextable) *powerProfileManager
 			ppm.setProfile(idx, prof)
 		}
 		ppm.btns = append(ppm.btns, btn)
-		bar.Add(w)
+		btnObjects = append(btnObjects, w)
 	}
 
-	ppm.bar = bar
+	ppm.bar = grid3(4, btnObjects...)
 
 	// Connect to daemon asynchronously.
 	go ppm.connect(debug)
@@ -153,7 +151,6 @@ func newProfileButtonWidget(label string, active bool) *profileButtonWidget {
 	circle := canvas.NewCircle(inactiveColor)
 	circle.Resize(fyne.NewSize(12, 12))
 	labelWidget := widget.NewLabel(label)
-	labelWidget.Alignment = fyne.TextAlignCenter
 
 	w := &profileButtonWidget{
 		label:  labelWidget,
@@ -198,7 +195,7 @@ func (r *profileButtonRenderer) Layout(size fyne.Size) {
 	r.widget.circle.Resize(circleSize)
 
 	// Give remaining width to label so text doesn't clip on scale changes
-	labelX := circleSize.Width + 4
+	labelX := circleSize.Width
 	labelWidth := size.Width - labelX
 	if labelWidth < 0 {
 		labelWidth = 0
@@ -211,7 +208,7 @@ func (r *profileButtonRenderer) Layout(size fyne.Size) {
 
 func (r *profileButtonRenderer) MinSize() fyne.Size {
 	labelMin := r.widget.label.MinSize()
-	return fyne.NewSize(12+4+labelMin.Width, labelMin.Height)
+	return fyne.NewSize(12+labelMin.Width, labelMin.Height)
 }
 
 func (r *profileButtonRenderer) Objects() []fyne.CanvasObject {

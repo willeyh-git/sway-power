@@ -14,6 +14,39 @@ import (
 	"github.com/willeyh-git/sway-power/internal/config"
 )
 
+// stackWithGap lays out children vertically with a gap between them.
+type stackWithGap struct {
+	gap float32
+}
+
+func (l *stackWithGap) Layout(children []fyne.CanvasObject, size fyne.Size) {
+	var y float32
+	for _, child := range children {
+		minSize := child.MinSize()
+		child.Resize(fyne.NewSize(size.Width, minSize.Height))
+		child.Move(fyne.NewPos(0, y))
+		y += minSize.Height + l.gap
+	}
+}
+
+func (l *stackWithGap) MinSize(children []fyne.CanvasObject) fyne.Size {
+	var maxW, totalH float32
+	for _, child := range children {
+		minSize := child.MinSize()
+		if minSize.Width > maxW {
+			maxW = minSize.Width
+		}
+		totalH += minSize.Height
+	}
+	totalH += l.gap * float32(len(children) - 1)
+	return fyne.NewSize(maxW, totalH)
+}
+
+// stack creates a vertical stack with gap between children.
+func stack(gap float32, children ...fyne.CanvasObject) *fyne.Container {
+	return container.New(&stackWithGap{gap: gap}, children...)
+}
+
 // Show starts the Sway Power application.
 func Show(app fyne.App, cfg config.Config, debug bool) error {
 	fmt.Fprintf(os.Stderr, "[ui] starting with debug=%v\n", debug)
@@ -43,7 +76,7 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	// Lid close buttons.
 	lidMgr := newLidCloseButtons(debug, status)
 
-	content := container.NewVBox(
+	content := stack(0,
 		batContent,
 		status.Object(),
 		widget.NewSeparator(),
@@ -51,7 +84,7 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 		lidMgr.buttonBar(),
 	)
 
-	window.SetContent(container.NewCenter(content))
+	window.SetContent(content)
 	window.Resize(fyne.NewSize(400, 250))
 
 	// Battery updates: first one shortly after mapping, then every 5 seconds.

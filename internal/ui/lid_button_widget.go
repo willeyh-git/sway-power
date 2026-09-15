@@ -21,7 +21,6 @@ func newLidCloseButtonWidget(label string, active bool) *lidCloseButtonWidget {
 	circle := canvas.NewCircle(inactiveColor)
 	circle.Resize(fyne.NewSize(12, 12))
 	labelWidget := widget.NewLabel(label)
-	labelWidget.Alignment = fyne.TextAlignCenter
 
 	w := &lidCloseButtonWidget{
 		label:  labelWidget,
@@ -66,7 +65,7 @@ func (r *lidCloseButtonRenderer) Layout(size fyne.Size) {
 	r.widget.circle.Resize(circleSize)
 
 	// Give remaining width to label so text doesn't clip on scale changes
-	labelX := circleSize.Width + 4
+	labelX := circleSize.Width
 	labelWidth := size.Width - labelX
 	if labelWidth < 0 {
 		labelWidth = 0
@@ -79,7 +78,7 @@ func (r *lidCloseButtonRenderer) Layout(size fyne.Size) {
 
 func (r *lidCloseButtonRenderer) MinSize() fyne.Size {
 	labelMin := r.widget.label.MinSize()
-	return fyne.NewSize(12+4+labelMin.Width, labelMin.Height)
+	return fyne.NewSize(12+labelMin.Width, labelMin.Height)
 }
 
 func (r *lidCloseButtonRenderer) Objects() []fyne.CanvasObject {

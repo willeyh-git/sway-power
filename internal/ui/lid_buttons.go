@@ -6,7 +6,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/lid"
@@ -59,7 +58,7 @@ func newLidCloseButtons(debug bool, status setTextable) *lidCloseButtons {
 		current: current,
 	}
 
-	bar := container.NewHBox()
+	var btnObjects []fyne.CanvasObject
 	for i, a := range actions {
 		w := newLidCloseButtonWidget(a.label, a.id == current)
 		btn := &lidCloseBtn{
@@ -72,9 +71,9 @@ func newLidCloseButtons(debug bool, status setTextable) *lidCloseButtons {
 			mgr.setAction(idx, act)
 		}
 		mgr.btns = append(mgr.btns, btn)
-		bar.Add(w)
+		btnObjects = append(btnObjects, w)
 	}
-	mgr.bar = bar
+	mgr.bar = grid3(4, btnObjects...)
 
 	// Start lid monitor.
 	go mgr.startMonitor(debug)
