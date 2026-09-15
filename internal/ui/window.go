@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/battery"
@@ -26,17 +27,15 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	window.SetFixedSize(true)
 	window.Resize(fyne.NewSize(100, 140))
 
-	// Battery display.
-	percentage := widget.NewLabel("")
-	percentage.Alignment = fyne.TextAlignCenter
-	status := widget.NewLabel("")
-	status.Alignment = fyne.TextAlignCenter
-	detail := widget.NewLabel("")
-	detail.Alignment = fyne.TextAlignCenter
-	batWidget := NewBatteryWidget(cfg.Colors, nil)
+	// Battery display (with EMA smoothing).
+	batContent, batDisplay := newBatteryDisplay()
 
-	// Battery display logic (with EMA smoothing).
-	batDisplay := newBatteryDisplay(percentage, status, detail, batWidget)
+	// Shared status line for one-off messages from the power profile and
+	// lid sections; empty (and thus invisible) otherwise.
+	status := newRichTextLabel("", widget.RichTextStyle{
+		SizeName:  theme.SizeNameCaptionText,
+		Alignment: fyne.TextAlignCenter,
+	})
 
 	// Power profile buttons.
 	powerMgr := newPowerProfileManager(debug, status)
@@ -45,18 +44,15 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	lidMgr := newLidCloseButtons(debug, status)
 
 	content := container.NewVBox(
-		widget.NewLabel("Battery"),
-		percentage,
-		batWidget,
-		status,
-		detail,
+		batContent,
+		status.Object(),
 		widget.NewSeparator(),
 		powerMgr.buttonBar(),
 		lidMgr.buttonBar(),
 	)
 
 	window.SetContent(container.NewCenter(content))
-	window.Resize(fyne.NewSize(400, 260))
+	window.Resize(fyne.NewSize(400, 250))
 
 	// Battery updates: first one shortly after mapping, then every 5 seconds.
 	go func() {

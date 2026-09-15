@@ -2,9 +2,14 @@ package ui
 
 import (
 	"fmt"
-	"strings"
+	"math"
+	"strconv"
 	"time"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/battery"
@@ -42,27 +47,91 @@ type setTextable interface {
 	SetText(string)
 }
 
-// batteryDisplay handles battery percentage, status, and time-left display.
+// richTextLabel is a single-line rich text label with a fixed style.
+type richTextLabel struct {
+	rt    *widget.RichText
+	style widget.RichTextStyle
+}
+
+func newRichTextLabel(text string, style widget.RichTextStyle) *richTextLabel {
+	return &richTextLabel{
+		rt:    widget.NewRichText(&widget.TextSegment{Text: text, Style: style}),
+		style: style,
+	}
+}
+
+// SetText replaces the text, preserving the style.
+func (l *richTextLabel) SetText(text string) {
+	l.rt.Segments = []widget.RichTextSegment{
+		&widget.TextSegment{Text: text, Style: l.style},
+	}
+	l.rt.Refresh()
+}
+
+// Object returns the underlying widget for layout.
+func (l *richTextLabel) Object() fyne.CanvasObject {
+	return l.rt
+}
+
+// batteryDisplay builds and updates the battery section: a header row with
+// a battery icon, title and percentage in large text, followed by a
+// two-by-two grid of details in small text where the values are bold.
 type batteryDisplay struct {
-	percentage *widget.Label
-	status     setTextable
-	detail     setTextable
-	widget     *BatteryWidget
+	percentage *richTextLabel
+	sizeValue  *richTextLabel
+	timeLabel  *richTextLabel
+	timeValue  *richTextLabel
+	cycleValue *richTextLabel
+	rateLabel  *richTextLabel
+	rateValue  *richTextLabel
 	ema        *emaSmooth
 	lastStatus battery.Status
 }
 
-func newBatteryDisplay(
-	percentage *widget.Label,
-	status setTextable,
-	detail setTextable,
-	batWidget *BatteryWidget,
-) *batteryDisplay {
-	return &batteryDisplay{
+func newBatteryDisplay() (*fyne.Container, *batteryDisplay) {
+	header := widget.RichTextStyle{SizeName: theme.SizeNameHeadingText}
+	headerBold := widget.RichTextStyle{
+		SizeName:  theme.SizeNameHeadingText,
+		TextStyle: fyne.TextStyle{Bold: true},
+	}
+	small := widget.RichTextStyle{SizeName: theme.SizeNameCaptionText}
+	smallBold := widget.RichTextStyle{
+		SizeName:  theme.SizeNameCaptionText,
+		TextStyle: fyne.TextStyle{Bold: true},
+	}
+
+	// Header: [ icon ] Battery        78%
+	percentage := newRichTextLabel("", headerBold)
+	title := newRichTextLabel("Battery", header)
+	headerBar := container.NewHBox(newBatteryIcon(), title.Object(), layout.NewSpacer(), percentage.Object())
+
+	// Grid: labels are regular, values are bold.
+	sizeLabel := newRichTextLabel("Battery size:  ", small)
+	sizeValue := newRichTextLabel("", smallBold)
+	timeLabel := newRichTextLabel("Time left:  ", small)
+	timeValue := newRichTextLabel("", smallBold)
+	cycleLabel := newRichTextLabel("Charge cycles:  ", small)
+	cycleValue := newRichTextLabel("", smallBold)
+	rateLabel := newRichTextLabel("Discharging:  ", small)
+	rateValue := newRichTextLabel("", smallBold)
+
+	grid := container.NewGridWithColumns(2,
+		container.NewHBox(sizeLabel.Object(), sizeValue.Object()),
+		container.NewHBox(timeLabel.Object(), timeValue.Object()),
+		container.NewHBox(cycleLabel.Object(), cycleValue.Object()),
+		container.NewHBox(rateLabel.Object(), rateValue.Object()),
+	)
+
+	content := container.NewVBox(headerBar, grid)
+
+	return content, &batteryDisplay{
 		percentage: percentage,
-		status:     status,
-		detail:     detail,
-		widget:     batWidget,
+		sizeValue:  sizeValue,
+		timeLabel:  timeLabel,
+		timeValue:  timeValue,
+		cycleValue: cycleValue,
+		rateLabel:  rateLabel,
+		rateValue:  rateValue,
 		ema:        newEMASmooth(0.2), // 20% weight on new reading
 	}
 }
@@ -70,23 +139,36 @@ func newBatteryDisplay(
 func (d *batteryDisplay) update(bat *battery.Battery, err error) {
 	if err != nil {
 		d.percentage.SetText("Error")
-		d.status.SetText(err.Error())
-		d.detail.SetText("")
-		d.widget.SetBattery(nil)
+		d.clearDetails()
 		return
 	}
 
 	if bat == nil {
 		d.percentage.SetText("No battery")
-		d.status.SetText("")
-		d.detail.SetText("")
-		d.widget.SetBattery(nil)
+		d.clearDetails()
 		return
 	}
 
 	d.percentage.SetText(fmt.Sprintf("%d%%", bat.Percentage))
-	d.widget.SetBattery(bat)
-	d.detail.SetText(batteryDetails(bat))
+
+	if bat.SizeWh > 0 {
+		d.sizeValue.SetText(fmt.Sprintf("%d Wh", int(math.Round(bat.SizeWh))))
+	} else {
+		d.sizeValue.SetText("")
+	}
+
+	if bat.Cycles > 0 {
+		d.cycleValue.SetText(strconv.Itoa(bat.Cycles))
+	} else {
+		d.cycleValue.SetText("")
+	}
+
+	// Time to full while charging, time left while discharging.
+	if bat.Status == battery.StatusCharging {
+		d.timeLabel.SetText("Time to full:  ")
+	} else {
+		d.timeLabel.SetText("Time left:  ")
+	}
 
 	// Smooth the time estimate, but never blend estimates from a
 	// different status (time-to-full vs time-to-empty).
@@ -95,29 +177,31 @@ func (d *batteryDisplay) update(bat *battery.Battery, err error) {
 		d.lastStatus = bat.Status
 	}
 	if bat.TimeLeft > 0 {
-		smoothed := d.ema.update(bat.TimeLeft)
-		d.status.SetText(fmt.Sprintf("%s · %s", bat.Status, formatDuration(smoothed)))
+		d.timeValue.SetText(formatDuration(d.ema.update(bat.TimeLeft)))
 	} else {
-		d.status.SetText(string(bat.Status))
+		d.timeValue.SetText("")
+	}
+
+	switch bat.Status {
+	case battery.StatusCharging:
+		d.rateLabel.SetText("Charging:  ")
+	case battery.StatusDischarging:
+		d.rateLabel.SetText("Discharging:  ")
+	default:
+		d.rateLabel.SetText("Power:  ")
+	}
+	if bat.RateW > 0 {
+		d.rateValue.SetText(fmt.Sprintf("%.1f W", bat.RateW))
+	} else {
+		d.rateValue.SetText("")
 	}
 }
 
-// batteryDetails formats the extra battery info: size in Wh, charge cycles,
-// and current charge/discharge power in W. Unknown values are omitted.
-func batteryDetails(bat *battery.Battery) string {
-	parts := make([]string, 0, 3)
-	if bat.SizeWh > 0 {
-		parts = append(parts, fmt.Sprintf("%.1f Wh", bat.SizeWh))
-	}
-	if bat.Cycles > 0 {
-		parts = append(parts, fmt.Sprintf("%d cycles", bat.Cycles))
-	}
-	if bat.RateW > 0 {
-		if bat.Status == battery.StatusCharging {
-			parts = append(parts, fmt.Sprintf("charging at %.1f W", bat.RateW))
-		} else {
-			parts = append(parts, fmt.Sprintf("discharging at %.1f W", bat.RateW))
-		}
-	}
-	return strings.Join(parts, " · ")
+func (d *batteryDisplay) clearDetails() {
+	d.sizeValue.SetText("")
+	d.timeLabel.SetText("")
+	d.timeValue.SetText("")
+	d.cycleValue.SetText("")
+	d.rateLabel.SetText("")
+	d.rateValue.SetText("")
 }
