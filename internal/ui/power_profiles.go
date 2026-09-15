@@ -25,6 +25,7 @@ type powerProfileManager struct {
 	btns      []*profileBtn
 	bar       *fyne.Container
 	status    setTextable
+	label     *widget.Label
 	pm        *power.Manager
 	stopWatch func()
 }
@@ -48,6 +49,7 @@ func newPowerProfileManager(debug bool, status setTextable) *powerProfileManager
 	ppm := &powerProfileManager{
 		profiles: profiles,
 		status:   status,
+		label:    widget.NewLabel("Power Profile"),
 	}
 
 	var btnObjects []fyne.CanvasObject
@@ -138,6 +140,10 @@ func (mgr *powerProfileManager) destroy() {
 
 func (mgr *powerProfileManager) buttonBar() *fyne.Container {
 	return mgr.bar
+}
+
+func (mgr *powerProfileManager) labelText() *widget.Label {
+	return mgr.label
 }
 
 // profileButtonWidget is a clickable widget that shows a dot indicator and label.

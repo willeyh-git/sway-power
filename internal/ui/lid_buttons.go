@@ -23,6 +23,7 @@ type lidCloseButtons struct {
 	btns      []*lidCloseBtn
 	bar       *fyne.Container
 	status    setTextable
+	label     *widget.Label
 	current   string
 	stopWatch func()
 }
@@ -56,6 +57,7 @@ func newLidCloseButtons(debug bool, status setTextable) *lidCloseButtons {
 	mgr := &lidCloseButtons{
 		actions: actions,
 		status:  status,
+		label:   widget.NewLabel("Lid Settings"),
 		current: current,
 	}
 
@@ -152,4 +154,8 @@ func (mgr *lidCloseButtons) setAction(idx int, act string) {
 
 func (mgr *lidCloseButtons) buttonBar() *fyne.Container {
 	return mgr.bar
+}
+
+func (mgr *lidCloseButtons) labelText() *widget.Label {
+	return mgr.label
 }

@@ -42,7 +42,7 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 
 	// Layout owns all spacing
 	layout := NewLayout(batContent, status.Object(), widget.NewSeparator(),
-		powerMgr.buttonBar(), lidMgr.buttonBar())
+		powerMgr.labelText(), powerMgr.buttonBar(), lidMgr.labelText(), lidMgr.buttonBar())
 
 	window.SetContent(layout.Container())
 	window.Resize(fyne.NewSize(400, 180))

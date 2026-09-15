@@ -10,16 +10,20 @@ type Layout struct {
 	batContent *fyne.Container
 	status     fyne.CanvasObject
 	separator  fyne.CanvasObject
+	powerLabel fyne.CanvasObject
 	powerBar   *fyne.Container
+	lidLabel   fyne.CanvasObject
 	lidBar     *fyne.Container
 }
 
-func NewLayout(batContent *fyne.Container, status fyne.CanvasObject, separator fyne.CanvasObject, powerBar, lidBar *fyne.Container) *Layout {
+func NewLayout(batContent *fyne.Container, status fyne.CanvasObject, separator fyne.CanvasObject, powerLabel fyne.CanvasObject, powerBar *fyne.Container, lidLabel fyne.CanvasObject, lidBar *fyne.Container) *Layout {
 	return &Layout{
 		batContent: batContent,
 		status:     status,
 		separator:  separator,
+		powerLabel: powerLabel,
 		powerBar:   powerBar,
+		lidLabel:   lidLabel,
 		lidBar:     lidBar,
 	}
 }
@@ -30,7 +34,9 @@ func (l *Layout) Container() *fyne.Container {
 		l.batContent,
 		l.status,
 		l.separator,
+		l.powerLabel,
 		l.powerBar,
+		l.lidLabel,
 		l.lidBar,
 	)
 }
