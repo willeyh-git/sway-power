@@ -54,9 +54,9 @@ func newLidCloseButtons(debug bool, status setTextable) *lidCloseButtons {
 	current := prefs.LidClose
 
 	mgr := &lidCloseButtons{
-		actions:  actions,
-		status:   status,
-		current:  current,
+		actions: actions,
+		status:  status,
+		current: current,
 	}
 
 	bar := container.NewHBox()
@@ -96,13 +96,20 @@ func (mgr *lidCloseButtons) startMonitor(debug bool) {
 	}
 
 	stopWatch := lid.Monitor(func(state lid.State) {
-		if state == lid.Closed {
+		switch state {
+		case lid.Closed:
 			if debug {
 				fmt.Fprintf(os.Stderr, "[lid] lid closed, executing %s\n", mgr.current)
 			}
 			if err := a.Execute(); err != nil {
 				if debug {
 					fmt.Fprintf(os.Stderr, "[lid] failed to execute %s: %v\n", mgr.current, err)
+				}
+			}
+		case lid.Open:
+			if err := a.OnOpen(); err != nil {
+				if debug {
+					fmt.Fprintf(os.Stderr, "[lid] failed to handle lid open: %v\n", err)
 				}
 			}
 		}
