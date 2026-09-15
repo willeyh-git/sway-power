@@ -34,7 +34,7 @@ type powerProfileManager struct {
 
 type profileBtn struct {
 	widget *profileButtonWidget
-	label  *widget.Label
+	label  *canvas.Text
 }
 
 func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *powerProfileManager {
@@ -153,14 +153,16 @@ func (mgr *powerProfileManager) labelText() fyne.CanvasObject {
 // profileButtonWidget is a clickable widget with a solid rectangular background.
 type profileButtonWidget struct {
 	widget.BaseWidget
-	label        *widget.Label
+	label        *canvas.Text
 	background   *canvas.Rectangle
 	OnTap        func()
 }
 
 func newProfileButtonWidget(label string, active bool) *profileButtonWidget {
 	background := canvas.NewRectangle(inactiveColor)
-	labelWidget := widget.NewLabel(label)
+	labelWidget := canvas.NewText(label, theme.Color(theme.ColorNameForeground))
+	labelWidget.TextSize = theme.Size(SmallSize)
+	labelWidget.TextStyle = fyne.TextStyle{Bold: true}
 
 	w := &profileButtonWidget{
 		label:        labelWidget,

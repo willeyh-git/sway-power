@@ -8,7 +8,6 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/config"
 	"github.com/willeyh-git/sway-power/internal/lid"
@@ -32,7 +31,7 @@ type lidCloseButtons struct {
 
 type lidCloseBtn struct {
 	widget *lidCloseButtonWidget
-	label  *widget.Label
+	label  *canvas.Text
 }
 
 func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidCloseButtons {

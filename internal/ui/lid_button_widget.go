@@ -6,20 +6,23 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 // lidCloseButtonWidget is a clickable widget with a solid rectangular background.
 type lidCloseButtonWidget struct {
 	widget.BaseWidget
-	label   *widget.Label
+	label      *canvas.Text
 	background *canvas.Rectangle
-	OnTap  func()
+	OnTap      func()
 }
 
 func newLidCloseButtonWidget(label string, active bool) *lidCloseButtonWidget {
 	background := canvas.NewRectangle(inactiveColor)
-	labelWidget := widget.NewLabel(label)
+	labelWidget := canvas.NewText(label, theme.Color(theme.ColorNameForeground))
+	labelWidget.TextSize = theme.Size(SmallSize)
+	labelWidget.TextStyle = fyne.TextStyle{Bold: true}
 
 	w := &lidCloseButtonWidget{
 		label:      labelWidget,
