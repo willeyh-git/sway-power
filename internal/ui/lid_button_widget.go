@@ -9,27 +9,26 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// lidCloseButtonWidget is a clickable widget for lid close actions.
+// lidCloseButtonWidget is a clickable widget with a solid rectangular background.
 type lidCloseButtonWidget struct {
 	widget.BaseWidget
-	label  *widget.Label
-	circle *canvas.Circle
+	label   *widget.Label
+	background *canvas.Rectangle
 	OnTap  func()
 }
 
 func newLidCloseButtonWidget(label string, active bool) *lidCloseButtonWidget {
-	circle := canvas.NewCircle(inactiveColor)
-	circle.Resize(fyne.NewSize(12, 12))
+	background := canvas.NewRectangle(inactiveColor)
 	labelWidget := widget.NewLabel(label)
 
 	w := &lidCloseButtonWidget{
-		label:  labelWidget,
-		circle: circle,
+		label:      labelWidget,
+		background: background,
 	}
 	w.ExtendBaseWidget(w)
 
 	if active {
-		circle.FillColor = activeColor
+		background.FillColor = activeColor
 	}
 
 	return w
@@ -39,7 +38,7 @@ func (w *lidCloseButtonWidget) CreateRenderer() fyne.WidgetRenderer {
 	return &lidCloseButtonRenderer{
 		widget: w,
 		objects: []fyne.CanvasObject{
-			w.circle,
+			w.background,
 			w.label,
 		},
 	}
@@ -58,27 +57,21 @@ type lidCloseButtonRenderer struct {
 }
 
 func (r *lidCloseButtonRenderer) Layout(size fyne.Size) {
-	circleSize := fyne.NewSize(12, 12)
+	// Resize background to fill the entire widget
+	r.widget.background.Resize(size)
+	r.widget.background.Move(fyne.NewPos(0, 0))
 
-	// Position dot vertically centered
-	r.widget.circle.Move(fyne.NewPos(0, (size.Height-circleSize.Height)/2))
-	r.widget.circle.Resize(circleSize)
-
-	// Give remaining width to label so text doesn't clip on scale changes
-	labelX := circleSize.Width
-	labelWidth := size.Width - labelX
-	if labelWidth < 0 {
-		labelWidth = 0
-	}
-
+	// Center label in the background
 	labelMin := r.widget.label.MinSize()
-	r.widget.label.Move(fyne.NewPos(labelX, (size.Height-labelMin.Height)/2))
-	r.widget.label.Resize(fyne.NewSize(labelWidth, labelMin.Height))
+	labelX := (size.Width - labelMin.Width) / 2
+	labelY := (size.Height - labelMin.Height) / 2
+	r.widget.label.Move(fyne.NewPos(labelX, labelY))
+	r.widget.label.Resize(labelMin)
 }
 
 func (r *lidCloseButtonRenderer) MinSize() fyne.Size {
 	labelMin := r.widget.label.MinSize()
-	return fyne.NewSize(12+labelMin.Width, labelMin.Height)
+	return fyne.NewSize(labelMin.Width+20, labelMin.Height+10)
 }
 
 func (r *lidCloseButtonRenderer) Objects() []fyne.CanvasObject {
@@ -87,7 +80,7 @@ func (r *lidCloseButtonRenderer) Objects() []fyne.CanvasObject {
 
 func (r *lidCloseButtonRenderer) Refresh() {
 	r.Layout(r.widget.Size())
-	r.widget.circle.Refresh()
+	r.widget.background.Refresh()
 	r.widget.label.Refresh()
 }
 

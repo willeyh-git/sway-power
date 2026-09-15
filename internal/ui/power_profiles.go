@@ -35,7 +35,6 @@ type powerProfileManager struct {
 type profileBtn struct {
 	widget *profileButtonWidget
 	label  *widget.Label
-	circle *canvas.Circle
 }
 
 func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *powerProfileManager {
@@ -64,7 +63,6 @@ func newPowerProfileManager(debug bool, cfg config.Config, status setTextable) *
 		btn := &profileBtn{
 			widget: w,
 			label:  w.label,
-			circle: w.circle,
 		}
 		idx, prof := i, p.id
 		w.OnTap = func() {
@@ -110,9 +108,9 @@ func (mgr *powerProfileManager) connect(debug bool) {
 func (mgr *powerProfileManager) updateButtons(active string) {
 	for i, p := range mgr.profiles {
 		if p.id == active {
-			mgr.btns[i].circle.FillColor = activeColor
+			mgr.btns[i].widget.background.FillColor = activeColor
 		} else {
-			mgr.btns[i].circle.FillColor = inactiveColor
+			mgr.btns[i].widget.background.FillColor = inactiveColor
 		}
 	}
 	for _, b := range mgr.btns {
@@ -152,27 +150,26 @@ func (mgr *powerProfileManager) labelText() fyne.CanvasObject {
 	return mgr.label
 }
 
-// profileButtonWidget is a clickable widget that shows a dot indicator and label.
+// profileButtonWidget is a clickable widget with a solid rectangular background.
 type profileButtonWidget struct {
 	widget.BaseWidget
-	label  *widget.Label
-	circle *canvas.Circle
-	OnTap  func()
+	label        *widget.Label
+	background   *canvas.Rectangle
+	OnTap        func()
 }
 
 func newProfileButtonWidget(label string, active bool) *profileButtonWidget {
-	circle := canvas.NewCircle(inactiveColor)
-	circle.Resize(fyne.NewSize(12, 12))
+	background := canvas.NewRectangle(inactiveColor)
 	labelWidget := widget.NewLabel(label)
 
 	w := &profileButtonWidget{
-		label:  labelWidget,
-		circle: circle,
+		label:        labelWidget,
+		background:   background,
 	}
 	w.ExtendBaseWidget(w)
 
 	if active {
-		circle.FillColor = activeColor
+		background.FillColor = activeColor
 	}
 
 	return w
@@ -182,7 +179,7 @@ func (w *profileButtonWidget) CreateRenderer() fyne.WidgetRenderer {
 	return &profileButtonRenderer{
 		widget: w,
 		objects: []fyne.CanvasObject{
-			w.circle,
+			w.background,
 			w.label,
 		},
 	}
@@ -201,27 +198,21 @@ type profileButtonRenderer struct {
 }
 
 func (r *profileButtonRenderer) Layout(size fyne.Size) {
-	circleSize := fyne.NewSize(12, 12)
+	// Resize background to fill the entire widget
+	r.widget.background.Resize(size)
+	r.widget.background.Move(fyne.NewPos(0, 0))
 
-	// Position dot vertically centered
-	r.widget.circle.Move(fyne.NewPos(0, (size.Height-circleSize.Height)/2))
-	r.widget.circle.Resize(circleSize)
-
-	// Give remaining width to label so text doesn't clip on scale changes
-	labelX := circleSize.Width
-	labelWidth := size.Width - labelX
-	if labelWidth < 0 {
-		labelWidth = 0
-	}
-
+	// Center label in the background
 	labelMin := r.widget.label.MinSize()
-	r.widget.label.Move(fyne.NewPos(labelX, (size.Height-labelMin.Height)/2))
-	r.widget.label.Resize(fyne.NewSize(labelWidth, labelMin.Height))
+	labelX := (size.Width - labelMin.Width) / 2
+	labelY := (size.Height - labelMin.Height) / 2
+	r.widget.label.Move(fyne.NewPos(labelX, labelY))
+	r.widget.label.Resize(labelMin)
 }
 
 func (r *profileButtonRenderer) MinSize() fyne.Size {
 	labelMin := r.widget.label.MinSize()
-	return fyne.NewSize(12+labelMin.Width, labelMin.Height)
+	return fyne.NewSize(labelMin.Width+20, labelMin.Height+10)
 }
 
 func (r *profileButtonRenderer) Objects() []fyne.CanvasObject {
@@ -230,7 +221,7 @@ func (r *profileButtonRenderer) Objects() []fyne.CanvasObject {
 
 func (r *profileButtonRenderer) Refresh() {
 	r.Layout(r.widget.Size())
-	r.widget.circle.Refresh()
+	r.widget.background.Refresh()
 	r.widget.label.Refresh()
 }
 

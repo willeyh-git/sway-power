@@ -33,7 +33,6 @@ type lidCloseButtons struct {
 type lidCloseBtn struct {
 	widget *lidCloseButtonWidget
 	label  *widget.Label
-	circle *canvas.Circle
 }
 
 func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidCloseButtons {
@@ -73,7 +72,6 @@ func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidC
 		btn := &lidCloseBtn{
 			widget: w,
 			label:  w.label,
-			circle: w.circle,
 		}
 		idx, act := i, a.id
 		w.OnTap = func() {
@@ -134,9 +132,9 @@ func (mgr *lidCloseButtons) setAction(idx int, act string) {
 	// Update buttons.
 	for i, a := range mgr.actions {
 		if a.id == act {
-			mgr.btns[i].circle.FillColor = activeColor
+			mgr.btns[i].widget.background.FillColor = activeColor
 		} else {
-			mgr.btns[i].circle.FillColor = inactiveColor
+			mgr.btns[i].widget.background.FillColor = inactiveColor
 		}
 	}
 	for _, b := range mgr.btns {
