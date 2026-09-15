@@ -59,9 +59,14 @@ func Show(app fyne.App, cfg config.Config) {
 		batteryWidget.SetBattery(bat)
 	}
 
-	// Initial state.
-	bat, err := battery.Read()
-	updateUI(bat, err)
+	// Defer initial update to run after window is shown and laid out.
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		bat, err := battery.Read()
+		fyne.Do(func() {
+			updateUI(bat, err)
+		})
+	}()
 
 	// Periodic updates.
 	go func() {
