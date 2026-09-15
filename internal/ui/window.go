@@ -9,9 +9,10 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/battery"
+	"github.com/willeyh-git/sway-power/internal/config"
 )
 
-func Show(app fyne.App) {
+func Show(app fyne.App, cfg config.Config) {
 	window := app.NewWindow("Sway Power")
 
 	title := widget.NewLabel("Battery")
@@ -23,12 +24,12 @@ func Show(app fyne.App) {
 	status := widget.NewLabel("")
 	status.Alignment = fyne.TextAlignCenter
 
-	progress := widget.NewProgressBar()
+	batteryWidget := NewBatteryWidget(cfg.Colors, nil)
 
 	content := container.NewVBox(
 		title,
 		percentage,
-		progress,
+		batteryWidget,
 		status,
 	)
 
@@ -36,34 +37,33 @@ func Show(app fyne.App) {
 		container.NewCenter(content),
 	)
 
-	window.Resize(fyne.NewSize(400, 200))
+	window.Resize(fyne.NewSize(400, 220))
 
-	// Update the UI with battery information.
 	updateUI := func(bat *battery.Battery, err error) {
 		if err != nil {
 			percentage.SetText("Error")
 			status.SetText(err.Error())
-			progress.SetValue(0)
+			batteryWidget.SetBattery(nil)
 			return
 		}
 
 		if bat == nil {
 			percentage.SetText("No battery")
 			status.SetText("")
-			progress.SetValue(0)
+			batteryWidget.SetBattery(nil)
 			return
 		}
 
 		percentage.SetText(fmt.Sprintf("%d%%", bat.Percentage))
 		status.SetText(string(bat.Status))
-		progress.SetValue(float64(bat.Percentage) / 100)
+		batteryWidget.SetBattery(bat)
 	}
 
-	// Read the initial battery state.
+	// Initial state.
 	bat, err := battery.Read()
 	updateUI(bat, err)
 
-	// Refresh the battery state periodically.
+	// Periodic updates.
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
@@ -71,7 +71,6 @@ func Show(app fyne.App) {
 		for range ticker.C {
 			bat, err := battery.Read()
 
-			// Fyne UI updates must happen on the Fyne call thread.
 			fyne.Do(func() {
 				updateUI(bat, err)
 			})
