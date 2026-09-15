@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 )
@@ -55,13 +58,22 @@ func (l *paddedLayout) MinSize(children []fyne.CanvasObject) fyne.Size {
 
 // Container returns the root container with 4px padding on all sides.
 func (l *Layout) Container() *fyne.Container {
+	// Create 2px spacers
+	space := float32(2)
+	spacer1 := canvas.NewRectangle(color.Transparent)
+	spacer1.Resize(fyne.NewSize(0, space))
+	spacer2 := canvas.NewRectangle(color.Transparent)
+	spacer2.Resize(fyne.NewSize(0, space))
+
 	inner := container.NewVBox(
 		l.batContent,
 		l.status,
 		l.separator,
 		l.powerLabel,
+		spacer1,
 		l.powerBar,
 		l.lidLabel,
+		spacer2,
 		l.lidBar,
 	)
 	return &fyne.Container{
