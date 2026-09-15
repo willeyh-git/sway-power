@@ -3,6 +3,13 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
+)
+
+// Font sizes
+const (
+	HeadingSize = theme.SizeNameHeadingText
+	SmallSize   = theme.SizeNameCaptionText
 )
 
 // Layout assembles all UI parts with explicit control over gaps.

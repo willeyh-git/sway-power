@@ -84,19 +84,19 @@ type batteryDisplay struct {
 }
 
 func newBatteryDisplay() (*fyne.Container, *batteryDisplay) {
-	header := widget.RichTextStyle{SizeName: theme.SizeNameHeadingText}
+	header := widget.RichTextStyle{SizeName: HeadingSize}
 	headerBold := widget.RichTextStyle{
-		SizeName:  theme.SizeNameHeadingText,
+		SizeName:  HeadingSize,
 		TextStyle: fyne.TextStyle{Bold: true},
 	}
-	small := widget.RichTextStyle{SizeName: theme.SizeNameCaptionText}
+	small := widget.RichTextStyle{SizeName: SmallSize}
 	smallBold := widget.RichTextStyle{
-		SizeName:  theme.SizeNameCaptionText,
+		SizeName:  SmallSize,
 		TextStyle: fyne.TextStyle{Bold: true},
 	}
 
 	// Header: [icon] Battery [percentage%]
-	iconSize := theme.Size(theme.SizeNameHeadingText)
+	iconSize := theme.Size(HeadingSize)
 	icon := canvas.NewText("󰁹", theme.Color(theme.ColorNameForeground))
 	icon.TextStyle = fyne.TextStyle{Monospace: true}
 	icon.TextSize = iconSize

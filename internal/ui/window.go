@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/battery"
@@ -30,7 +29,7 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 
 	// Shared status line
 	status := newRichTextLabel("", widget.RichTextStyle{
-		SizeName:  theme.SizeNameCaptionText,
+		SizeName:  SmallSize,
 		Alignment: fyne.TextAlignCenter,
 	})
 
