@@ -2,6 +2,7 @@ package battery
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -44,14 +45,9 @@ func Read() (*Battery, error) {
 			continue
 		}
 
-		capacityData, err := os.ReadFile(filepath.Join(path, "capacity"))
+		percentage, err := readBatteryPercentage(path)
 		if err != nil {
-			return nil, fmt.Errorf("read battery capacity: %w", err)
-		}
-
-		percentage, err := strconv.Atoi(strings.TrimSpace(string(capacityData)))
-		if err != nil {
-			return nil, fmt.Errorf("parse battery capacity: %w", err)
+			return nil, err
 		}
 
 		statusData, err := os.ReadFile(filepath.Join(path, "status"))
@@ -67,6 +63,55 @@ func Read() (*Battery, error) {
 	}
 
 	return nil, nil
+}
+
+// readBatteryPercentage calculates the battery percentage from charge_now / charge_full
+// (or energy_now / energy_full), falling back to the capacity file.
+func readBatteryPercentage(path string) (int, error) {
+	// Try charge_now / charge_full first.
+	if pct, err := readRatio(path, "charge_now", "charge_full"); err == nil && pct > 0 {
+		return pct, nil
+	}
+
+	// Try energy_now / energy_full.
+	if pct, err := readRatio(path, "energy_now", "energy_full"); err == nil && pct > 0 {
+		return pct, nil
+	}
+
+	// Fall back to capacity.
+	data, err := os.ReadFile(filepath.Join(path, "capacity"))
+	if err != nil {
+		return 0, fmt.Errorf("read battery capacity: %w", err)
+	}
+	pct, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0, fmt.Errorf("parse battery capacity: %w", err)
+	}
+	return pct, nil
+}
+
+// readRatio reads two numeric files and returns file1 / file2 * 100 as an integer.
+func readRatio(path, numFile, denFile string) (int, error) {
+	numRaw, err := os.ReadFile(filepath.Join(path, numFile))
+	if err != nil {
+		return 0, err
+	}
+	denRaw, err := os.ReadFile(filepath.Join(path, denFile))
+	if err != nil {
+		return 0, err
+	}
+	num, err := strconv.ParseFloat(strings.TrimSpace(string(numRaw)), 64)
+	if err != nil {
+		return 0, err
+	}
+	den, err := strconv.ParseFloat(strings.TrimSpace(string(denRaw)), 64)
+	if err != nil {
+		return 0, err
+	}
+	if den <= 0 {
+		return 0, fmt.Errorf("denominator %s is %f", denFile, den)
+	}
+	return int(math.Round(num / den * 100)), nil
 }
 
 func parseStatus(status string) Status {
