@@ -23,7 +23,6 @@ func newToggleButtonWidget(label string, active bool, borderColor, labelColor, a
 	border := canvas.NewRectangle(borderColor)
 	labelWidget := canvas.NewText(label, labelColor)
 	labelWidget.TextSize = theme.Size(SmallSize)
-	labelWidget.TextStyle = fyne.TextStyle{Bold: true}
 
 	w := &toggleButtonWidget{
 		label:      labelWidget,

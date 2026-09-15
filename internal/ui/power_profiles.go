@@ -14,7 +14,7 @@ import (
 
 // active/inactive colors for profile buttons.
 var (
-	activeColor   = color.NRGBA{0x50, 0xc8, 0x78, 0xff} // green
+	activeColor   = color.NRGBA{0xd0, 0xd0, 0xd0, 0xff} // subtle gray
 	inactiveColor = color.NRGBA{0x88, 0x88, 0x88, 0xff} // gray
 )
 

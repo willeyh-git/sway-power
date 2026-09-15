@@ -150,7 +150,7 @@ func Default() Config {
 			Icon:      "#000000",   // Black for icons
 			Title:     "#000000",   // Black for titles
 			Category:  "#000000",   // Black for category labels
-			Border:    "#565656",   // Dark gray for borders
+			Border:    "#c0c0c0",   // Subtle gray for borders
 		},
 		LidClose: LidClose{
 			Action: "lock", // default: lock screen when lid closes
