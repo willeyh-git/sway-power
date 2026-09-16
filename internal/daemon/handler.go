@@ -57,8 +57,10 @@ func (h *Handler) SetAction(a action.Action) {
 		return
 	}
 	h.mu.Lock()
-	h.log.Printf("handler: action swapped: %q → %q", h.current, a)
-	h.current = a
+	if h.current != a {
+		h.log.Printf("handler: action swapped: %q → %q", h.current, a)
+		h.current = a
+	}
 	h.mu.Unlock()
 }
 
