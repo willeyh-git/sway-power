@@ -65,16 +65,16 @@ func newLidCloseButtons(debug bool, pal Palette, status setTextable) *lidCloseBu
 	mgr.label.(*canvas.Text).Color = pal.Category
 
 	var btnObjects []fyne.CanvasObject
-	for i, a := range actions {
+	for _, a := range actions {
 		w := newToggleButtonWidget(a.label, pal)
 		w.SetActive(a.id == current)
 		btn := &lidCloseBtn{
 			widget: w,
 			label:  w.label,
 		}
-		idx, act := i, a.id
+		act := a.id
 		w.OnTap = func() {
-			mgr.setAction(idx, act)
+			mgr.setAction(act)
 		}
 		mgr.btns = append(mgr.btns, btn)
 		btnObjects = append(btnObjects, w)
@@ -125,7 +125,7 @@ func (mgr *lidCloseButtons) startMonitor(debug bool) {
 	select {}
 }
 
-func (mgr *lidCloseButtons) setAction(idx int, act string) {
+func (mgr *lidCloseButtons) setAction(act string) {
 	mgr.current = act
 
 	// Update buttons.
