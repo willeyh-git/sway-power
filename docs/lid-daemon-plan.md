@@ -67,7 +67,7 @@ Component responsibilities:
 
 ## Phases (ordered for independent, reviewable commits)
 
-### 1. Extract the lid monitor from the GUI
+### 1. Extract the lid monitor from the GUI ✅ DONE
 
 - Make `lid.Monitor` independently usable without the UI: move the
   closed/open → `Execute`/`OnOpen` mapping out of `lid_buttons.go` into a
@@ -75,7 +75,7 @@ Component responsibilities:
 - No systemd, no D-Bus yet. Behavior unchanged: run the app as today and
   confirm identical behavior.
 
-### 2. `sway-power daemon`: inhibitor + monitor + actions, headless
+### 2. `sway-power daemon`: inhibitor + monitor + actions, headless ✅ DONE
 
 - `cmd/sway-power/main.go`: subcommand dispatch (`daemon` vs GUI).
 - New package `internal/daemon` with `Inhibitor`, `Handler`, (later
@@ -108,18 +108,18 @@ Component responsibilities:
   `systemd-inhibit --list` shows "Sway Power"; lid close acts; SIGTERM →
   lock gone; `kill -9` → lock gone.
 
-### 3. Config hot-reload = action swap (no monitor restart)
+### 3. Config hot-reload = action swap (no monitor restart) ✅ DONE
 
 - `PreferencesWatcher`: 1 s poll of `preferences.json` **mtime** (not
   inotify — see "Review changes"); on mtime change,
-  `preferences.Load()` + `Validate()`.
+  `preferences.LoadFromPath()` + `Validate()`.
 - On valid change: `Handler.SetAction(newAction)` — atomic swap under a
   mutex (or `atomic.Pointer[action]`). **The monitor is never restarted.**
 - On parse/validate failure: keep last-good action, log.
 - This makes the earlier "restart monitor on `setAction`" path in the GUI
   unnecessary; delete it.
 
-### 4. Atomic preference writes
+### 4. Atomic preference writes ✅ DONE
 
 - `preferences.Save()` currently does a plain `os.WriteFile` to the final
   path — the polling daemon can observe half-written JSON. Change to:
@@ -128,7 +128,7 @@ Component responsibilities:
   which also makes the mtime-poll reload rule trivially correct (parse
   failure ⇒ retry next tick, never sticky).
 
-### 5. systemd `--user` unit (added only once the daemon is stable)
+### 5. systemd `--user` unit (added only once the daemon is stable) ✅ DONE
 
 - `sway-power.service`:
   ```ini
@@ -164,7 +164,7 @@ Component responsibilities:
   behavior, not a known fact: integration test "logout → unit stopped,
   `systemd-inhibit --list` clean" explicitly (see Tests).
 
-### 6. One-time bootstrap (GUI side), then status-only
+### 6. One-time bootstrap (GUI side), then status-only ✅ DONE
 
 - First GUI launch performs install *once*:
   1. Write unit (if missing) with **absolute, stable** `ExecStart` path.
@@ -183,7 +183,7 @@ Component responsibilities:
   "the background lid handler", **not** the GUI. The executable, the
   `daemon` subcommand, and the unit are three related but distinct things.
 
-### 7. GUI cleanup
+### 7. GUI cleanup ✅ DONE
 
 - `lid_buttons.go`: delete `startMonitor`, `stopWatch`, monitor start on
   `setAction`. `setAction()` = update buttons → atomic
@@ -212,6 +212,9 @@ Mechanism candidates: a small user-socket D-Bus object, a state file in
 - Prefs → action resolution: valid / missing file / invalid value /
   unparseable file.
 - Action-swap atomicity: swap under concurrent callback.
+- **All tests are fully mocked** — no real commands (swaylock, systemctl,
+  swaymsg) are executed during tests. The action package exports `Exec`
+  and `SwaymsgCmd` function variables that tests override.
 
 **Integration — inhibitor failure/recovery is the core correctness
 property; test it explicitly:**
