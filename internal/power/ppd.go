@@ -33,7 +33,9 @@ func newPPD(debug bool) (*Manager, error) {
 	}
 
 	if err := d.ping(); err != nil {
-		conn.Close()
+		if closeErr := conn.Close(); closeErr != nil && d.debug {
+			d.log("failed to close D-Bus connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("power-profiles-daemon not running: %w", err)
 	}
 
@@ -124,7 +126,9 @@ func (d *ppd) watchActiveProfile(debug bool, fn func(string)) func() {
 	go func() {
 		defer func() {
 			once.Do(func() {
-				d.conn.RemoveMatchSignal(match)
+				if err := d.conn.RemoveMatchSignal(match); err != nil && debug {
+					d.log("failed to remove signal match: %v", err)
+				}
 				d.conn.RemoveSignal(sigCh)
 				close(sigCh)
 			})
