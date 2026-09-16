@@ -83,7 +83,7 @@ func (l *Layout) Container() *fyne.Container {
 		Objects: []fyne.CanvasObject{inner},
 	}
 
-	return container.NewMax(padded)
+	return container.NewStack(padded)
 }
 
 // flexRow lays out children in a row, with one child growing.

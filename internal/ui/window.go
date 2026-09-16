@@ -57,7 +57,7 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	bg := canvas.NewRectangle(pal.Background)
 	bg.Resize(fyne.NewSize(400, 180))
 	content := layout.Container()
-	window.SetContent(container.NewMax(bg, content))
+	window.SetContent(container.NewStack(bg, content))
 
 	// Battery updates
 	go func() {
