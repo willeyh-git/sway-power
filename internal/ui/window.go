@@ -20,7 +20,7 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	fmt.Fprintf(os.Stderr, "[ui] starting with debug=%v\n", debug)
 
 	if scale := getWaylandScale(); scale > 0 {
-		os.Setenv("FYNE_SCALE", fmt.Sprintf("%.2f", scale))
+		_ = os.Setenv("FYNE_SCALE", fmt.Sprintf("%.2f", scale)) // best-effort scale config
 	}
 
 	// Resolve the palette: user colors take precedence, everything else
