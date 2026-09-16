@@ -31,6 +31,7 @@ func (s LidState) String() string {
 type Monitor struct {
 	lidPath  string
 	log      Logger
+	debug    bool
 	callback func(LidState) // called on state change or initial state
 	stopCh   chan struct{}
 	done     chan struct{}
@@ -38,8 +39,9 @@ type Monitor struct {
 
 // NewMonitor creates a new lid state monitor.
 // The callback is called immediately with the initial state, then on each change.
-// The monitor polls at 500ms intervals.
-func NewMonitor(log Logger, callback func(LidState)) *Monitor {
+// The monitor polls at 500ms intervals; debug enables the chatty per-poll
+// read log.
+func NewMonitor(log Logger, debug bool, callback func(LidState)) *Monitor {
 	lidPath := findLidState(log)
 	if lidPath == "" {
 		log.Printf("lid: could not find lid state file")
@@ -49,6 +51,7 @@ func NewMonitor(log Logger, callback func(LidState)) *Monitor {
 	m := &Monitor{
 		lidPath:  lidPath,
 		log:      log,
+		debug:    debug,
 		callback: callback,
 		stopCh:   make(chan struct{}),
 		done:     make(chan struct{}),
@@ -67,7 +70,7 @@ func (m *Monitor) watch() {
 	defer ticker.Stop()
 
 	// Read initial state.
-	initial, err := readLidState(m.lidPath, m.log)
+	initial, err := m.readLidState()
 	if err != nil {
 		m.log.Printf("lid: could not read initial state: %v", err)
 		return
@@ -82,7 +85,7 @@ func (m *Monitor) watch() {
 		case <-m.stopCh:
 			return
 		case <-ticker.C:
-			current, err := readLidState(m.lidPath, m.log)
+			current, err := m.readLidState()
 			if err != nil {
 				m.log.Printf("lid: error reading state: %v", err)
 				continue
@@ -130,15 +133,20 @@ func findLidState(log Logger) string {
 	return ""
 }
 
-// readLidState reads the lid state from the given path.
-func readLidState(path string, log Logger) (LidState, error) {
-	data, err := os.ReadFile(path)
+// readLidState reads the lid state from the monitored path. The raw file
+// content is logged only in debug mode; in normal operation the monitor
+// is steady-state (no per-poll journal noise) and only state changes and
+// errors are logged.
+func (m *Monitor) readLidState() (LidState, error) {
+	data, err := os.ReadFile(m.lidPath)
 	if err != nil {
 		return 0, err
 	}
 
 	state := strings.ToLower(string(data))
-	log.Printf("lid: read %q", strings.TrimSpace(string(data)))
+	if m.debug {
+		m.log.Printf("lid: read %q", strings.TrimSpace(string(data)))
+	}
 
 	if strings.Contains(state, "open") {
 		return LidOpen, nil

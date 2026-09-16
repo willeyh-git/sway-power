@@ -19,8 +19,12 @@ type Daemon struct {
 }
 
 // New creates a new Daemon.
+//
+// The daemon always logs to stderr — under systemd that is the journal —
+// because the plan requires inhibitor failures to be logged prominently.
+// The debug flag only enables chatty per-poll diagnostics.
 func New(debug bool) (*Daemon, error) {
-	lg := logger.New(debug, "[daemon] ")
+	lg := logger.New(true, "[daemon] ")
 
 	d := &Daemon{log: lg}
 
@@ -37,7 +41,7 @@ func New(debug bool) (*Daemon, error) {
 	d.prefsWatcher = NewPreferencesWatcher(d.handler, lg)
 
 	// Create monitor - wires to handler via callbacks.
-	d.monitor = NewMonitor(lg, func(state LidState) {
+	d.monitor = NewMonitor(lg, debug, func(state LidState) {
 		switch state {
 		case LidClosed:
 			d.handler.HandleLidClosed()
