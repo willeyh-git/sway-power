@@ -59,6 +59,11 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	content := layout.Container()
 	window.SetContent(container.NewStack(bg, content))
 
+	// Clean up D-Bus connection and watcher on exit.
+	window.SetOnClosed(func() {
+		powerMgr.destroy()
+	})
+
 	// Battery updates
 	go func() {
 		time.Sleep(100 * time.Millisecond)

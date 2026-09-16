@@ -46,15 +46,15 @@ func newPowerProfileManager(debug bool, pal Palette, status setTextable) *powerP
 	ppm.label.(*canvas.Text).Color = pal.Category
 
 	var btnObjects []fyne.CanvasObject
-	for i, p := range profiles {
+	for _, p := range profiles {
 		w := newToggleButtonWidget(p.label, pal)
 		btn := &profileBtn{
 			widget: w,
 			label:  w.label,
 		}
-		idx, prof := i, p.id
+		prof := p.id
 		w.OnTap = func() {
-			ppm.setProfile(idx, prof)
+			ppm.setProfile(prof)
 		}
 		ppm.btns = append(ppm.btns, btn)
 		btnObjects = append(btnObjects, w)
@@ -99,7 +99,7 @@ func (mgr *powerProfileManager) updateButtons(active string) {
 	}
 }
 
-func (mgr *powerProfileManager) setProfile(idx int, prof string) {
+func (mgr *powerProfileManager) setProfile(prof string) {
 	if mgr.pm == nil {
 		return
 	}
@@ -119,7 +119,7 @@ func (mgr *powerProfileManager) destroy() {
 		mgr.stopWatch()
 	}
 	if mgr.pm != nil {
-		mgr.pm.Close()
+		_ = mgr.pm.Close() // best-effort cleanup on exit
 	}
 }
 
