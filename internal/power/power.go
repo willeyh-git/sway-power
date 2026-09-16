@@ -8,6 +8,8 @@ package power
 
 import (
 	"fmt"
+
+	"github.com/willeyh-git/sway-power/internal/logger"
 )
 
 const (
@@ -22,21 +24,21 @@ const (
 // (Arch, Debian, etc.) is available.
 type Manager struct {
 	daemon daemon
-	debug  bool
-	log    func(string, ...any)
 }
 
 // New creates a Manager, auto-detecting the available daemon.
 //
 // When debug is true, all D-Bus calls and signals are logged to stderr.
 func New(debug bool) (*Manager, error) {
+	lg := logger.New(debug, "[power] ")
+
 	// Try tuned-ppd (system bus) first — Fedora default.
-	if m, err := newTuned(debug); err == nil {
+	if m, err := newTuned(lg); err == nil {
 		return m, nil
 	}
 
 	// Fall back to power-profiles-daemon (session bus).
-	if m, err := newPPD(debug); err == nil {
+	if m, err := newPPD(lg); err == nil {
 		return m, nil
 	}
 
@@ -61,8 +63,8 @@ func (m *Manager) SetActiveProfile(profile string) error {
 
 // WatchActiveProfile watches for profile changes and calls fn whenever
 // the active profile changes. It returns a function to stop watching.
-func (m *Manager) WatchActiveProfile(debug bool, fn func(profile string)) func() {
-	return m.daemon.watchActiveProfile(debug, fn)
+func (m *Manager) WatchActiveProfile(fn func(profile string)) func() {
+	return m.daemon.watchActiveProfile(fn)
 }
 
 // daemon is the interface that both tuned-ppd and power-profiles-daemon
@@ -71,5 +73,5 @@ type daemon interface {
 	close() error
 	activeProfile() (string, error)
 	setActiveProfile(string) error
-	watchActiveProfile(bool, func(string)) func()
+	watchActiveProfile(func(string)) func()
 }

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/willeyh-git/sway-power/internal/logger"
 )
 
 // State represents the current lid state.
@@ -35,24 +37,24 @@ func (s State) String() string {
 // systemd-inhibit, which works on any systemd distro without overriding
 // logind.conf) so we can control what happens on lid close ourselves.
 // Returns a function to stop monitoring and release the inhibit.
-func Monitor(fn func(State)) func() {
+func Monitor(fn func(State), lg *logger.Logger) func() {
 	// Find the lid switch path.
-	lidPath := findLidState()
+	lidPath := findLidState(lg)
 	if lidPath == "" {
 		return func() {}
 	}
 
 	// Inhibit systemd-logind from handling the lid switch before we react
 	// to any state, so logind never races us on startup.
-	inhibitor, err := startInhibit()
+	inhibitor, err := startInhibit(lg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[lid] failed to inhibit logind: %v\n", err)
+		lg.Printf("failed to inhibit logind: %v", err)
 	}
 
 	stopCh := make(chan struct{})
 
 	// Read initial state.
-	initial, err := readLidState(lidPath)
+	initial, err := readLidState(lidPath, lg)
 	if err == nil {
 		fn(initial)
 	}
@@ -72,13 +74,13 @@ func Monitor(fn func(State)) func() {
 			case <-stopCh:
 				return
 			case <-ticker.C:
-				current, err := readLidState(lidPath)
+				current, err := readLidState(lidPath, lg)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "[lid] error reading lid state: %v\n", err)
+					lg.Printf("error reading lid state: %v", err)
 					continue
 				}
 				if current != last {
-					fmt.Fprintf(os.Stderr, "[lid] lid state changed: %s\n", current)
+					lg.Printf("lid state changed: %s", current)
 					last = current
 					fn(current)
 				}
@@ -98,12 +100,13 @@ func Monitor(fn func(State)) func() {
 type Inhibitor struct {
 	cmd  *exec.Cmd
 	done chan struct{}
+	log  *logger.Logger
 }
 
 // startInhibit starts systemd-inhibit to block logind from handling the
 // lid switch. Using systemd-inhibit (instead of a logind.conf override)
 // keeps this distro agnostic: it works on Arch, Fedora, etc. alike.
-func startInhibit() (*Inhibitor, error) {
+func startInhibit(lg *logger.Logger) (*Inhibitor, error) {
 	cmd := exec.Command("systemd-inhibit",
 		"--what=handle-lid-switch",
 		"--who=Sway Power",
@@ -119,7 +122,7 @@ func startInhibit() (*Inhibitor, error) {
 		return nil, fmt.Errorf("start systemd-inhibit: %w", err)
 	}
 
-	inh := &Inhibitor{cmd: cmd, done: make(chan struct{})}
+	inh := &Inhibitor{cmd: cmd, done: make(chan struct{}), log: lg}
 	go func() {
 		cmd.Wait()
 		close(inh.done)
@@ -152,7 +155,9 @@ func (i *Inhibitor) Release() {
 		case <-time.After(2 * time.Second):
 		}
 	}
-	_ = i.cmd.Process.Kill()
+	if err := i.cmd.Process.Kill(); err != nil {
+		i.log.Printf("failed to kill inhibit process: %v", err)
+	}
 	<-i.done
 }
 
@@ -170,11 +175,11 @@ func verifyInhibit() error {
 }
 
 // findLidState finds the path to the lid state file.
-func findLidState() string {
+func findLidState(lg *logger.Logger) string {
 	// Try /proc/acpi/button/lid/*/state first.
 	dirs, err := filepath.Glob("/proc/acpi/button/lid/*/state")
 	if err == nil && len(dirs) > 0 {
-		fmt.Fprintf(os.Stderr, "[lid] found lid state at %s\n", dirs[0])
+		lg.Printf("found lid state at %s", dirs[0])
 		return dirs[0]
 	}
 
@@ -184,7 +189,7 @@ func findLidState() string {
 		dir := filepath.Dir(dirs[0])
 		statePath := filepath.Join(dir, "state")
 		if _, err := os.Stat(statePath); err == nil {
-			fmt.Fprintf(os.Stderr, "[lid] found lid state at %s\n", statePath)
+			lg.Printf("found lid state at %s", statePath)
 			return statePath
 		}
 	}
@@ -193,14 +198,14 @@ func findLidState() string {
 }
 
 // readLidState reads the lid state from the given path.
-func readLidState(path string) (State, error) {
+func readLidState(path string, lg *logger.Logger) (State, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return 0, fmt.Errorf("read lid state: %w", err)
 	}
 
 	state := strings.ToLower(string(data))
-	fmt.Fprintf(os.Stderr, "[lid] read state: %q\n", strings.TrimSpace(string(data)))
+	lg.Printf("read state: %q", strings.TrimSpace(string(data)))
 
 	if strings.Contains(state, "open") {
 		return Open, nil

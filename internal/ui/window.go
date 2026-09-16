@@ -13,14 +13,18 @@ import (
 
 	"github.com/willeyh-git/sway-power/internal/battery"
 	"github.com/willeyh-git/sway-power/internal/config"
+	"github.com/willeyh-git/sway-power/internal/logger"
 )
 
 // Show starts the Sway Power application.
 func Show(app fyne.App, cfg config.Config, debug bool) error {
-	fmt.Fprintf(os.Stderr, "[ui] starting with debug=%v\n", debug)
+	lg := logger.New(debug, "[ui] ")
+	lg.Printf("starting with debug=%v", debug)
 
 	if scale := getWaylandScale(); scale > 0 {
-		_ = os.Setenv("FYNE_SCALE", fmt.Sprintf("%.2f", scale)) // best-effort scale config
+		if err := os.Setenv("FYNE_SCALE", fmt.Sprintf("%.2f", scale)); err != nil {
+			lg.Printf("failed to set FYNE_SCALE: %v", err)
+		}
 	}
 
 	// Resolve the palette: user colors take precedence, everything else

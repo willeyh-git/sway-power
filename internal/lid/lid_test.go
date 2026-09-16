@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/willeyh-git/sway-power/internal/logger"
 )
 
 func TestStateString(t *testing.T) {
@@ -48,7 +50,7 @@ func TestReadLidState(t *testing.T) {
 				t.Fatalf("setup: failed to write file: %v", err)
 			}
 
-			got, err := readLidState(path)
+			got, err := readLidState(path, logger.New(false, "[lid] "))
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -68,7 +70,7 @@ func TestReadLidState(t *testing.T) {
 func TestFindLidState(t *testing.T) {
 	// findLidState tries real paths, so we just verify it returns something
 	// or nothing — we can't easily mock this without changing the implementation.
-	got := findLidState()
+	got := findLidState(logger.New(false, "[lid] "))
 	if got != "" {
 		t.Logf("found lid state at %s", got)
 	}

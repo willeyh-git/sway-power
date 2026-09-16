@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 
+	"github.com/willeyh-git/sway-power/internal/logger"
 	"github.com/willeyh-git/sway-power/internal/power"
 )
 
@@ -18,6 +19,7 @@ type powerProfileManager struct {
 	label     fyne.CanvasObject
 	pm        *power.Manager
 	stopWatch func()
+	log       *logger.Logger
 }
 
 type profileBtn struct {
@@ -39,6 +41,7 @@ func newPowerProfileManager(debug bool, pal Palette, status setTextable) *powerP
 		profiles: profiles,
 		status:   status,
 		label:    canvas.NewText("Power Profile", pal.Category),
+		log:      logger.New(debug, "[power] "),
 	}
 	ppm.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	ppm.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
@@ -85,7 +88,7 @@ func (mgr *powerProfileManager) connect(debug bool) {
 	})
 
 	// Watch for external profile changes.
-	stopWatch := p.WatchActiveProfile(debug, func(profile string) {
+	stopWatch := p.WatchActiveProfile(func(profile string) {
 		fyne.Do(func() {
 			mgr.updateButtons(profile)
 		})
@@ -119,7 +122,9 @@ func (mgr *powerProfileManager) destroy() {
 		mgr.stopWatch()
 	}
 	if mgr.pm != nil {
-		_ = mgr.pm.Close() // best-effort cleanup on exit
+		if err := mgr.pm.Close(); err != nil {
+			mgr.log.Printf("failed to close power daemon: %v", err)
+		}
 	}
 }
 

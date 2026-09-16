@@ -1,9 +1,6 @@
 package ui
 
 import (
-	"fmt"
-	"os"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -11,6 +8,7 @@ import (
 
 	"github.com/willeyh-git/sway-power/internal/lid"
 	"github.com/willeyh-git/sway-power/internal/lid/action"
+	"github.com/willeyh-git/sway-power/internal/logger"
 	"github.com/willeyh-git/sway-power/internal/preferences"
 )
 
@@ -26,6 +24,7 @@ type lidCloseButtons struct {
 	label     fyne.CanvasObject
 	current   string
 	stopWatch func()
+	log       *logger.Logger
 }
 
 type lidCloseBtn struct {
@@ -43,12 +42,12 @@ func newLidCloseButtons(debug bool, pal Palette, status setTextable) *lidCloseBu
 		{"nothing", "Nothing"},
 	}
 
+	lg := logger.New(debug, "[lid] ")
+
 	// Load current preference.
 	prefs, err := preferences.Load()
 	if err != nil {
-		if debug {
-			fmt.Fprintf(os.Stderr, "[lid] failed to load preferences: %v\n", err)
-		}
+		lg.Printf("failed to load preferences: %v", err)
 		prefs = preferences.Default()
 	}
 	current := prefs.LidClose
@@ -58,6 +57,7 @@ func newLidCloseButtons(debug bool, pal Palette, status setTextable) *lidCloseBu
 		status:  status,
 		label:   canvas.NewText("Lid Settings", pal.Category),
 		current: current,
+		log:     lg,
 	}
 	mgr.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	mgr.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
@@ -82,43 +82,33 @@ func newLidCloseButtons(debug bool, pal Palette, status setTextable) *lidCloseBu
 	mgr.bar = container.New(&btnBar{}, btnObjects...)
 
 	// Start lid monitor.
-	go mgr.startMonitor(debug)
+	go mgr.startMonitor()
 
 	return mgr
 }
 
-func (mgr *lidCloseButtons) startMonitor(debug bool) {
+func (mgr *lidCloseButtons) startMonitor() {
 	a := action.Action(mgr.current)
 	if err := a.Validate(); err != nil {
-		if debug {
-			fmt.Fprintf(os.Stderr, "[lid] invalid action %q: %v\n", mgr.current, err)
-		}
+		mgr.log.Printf("invalid action %q: %v", mgr.current, err)
 		return
 	}
 
-	if debug {
-		fmt.Fprintf(os.Stderr, "[lid] monitoring lid close, action=%s\n", mgr.current)
-	}
+	mgr.log.Printf("monitoring lid close, action=%s", mgr.current)
 
 	stopWatch := lid.Monitor(func(state lid.State) {
 		switch state {
 		case lid.Closed:
-			if debug {
-				fmt.Fprintf(os.Stderr, "[lid] lid closed, executing %s\n", mgr.current)
-			}
+			mgr.log.Printf("lid closed, executing %s", mgr.current)
 			if err := a.Execute(); err != nil {
-				if debug {
-					fmt.Fprintf(os.Stderr, "[lid] failed to execute: %v\n", err)
-				}
+				mgr.log.Printf("failed to execute: %v", err)
 			}
 		case lid.Open:
 			if err := a.OnOpen(); err != nil {
-				if debug {
-					fmt.Fprintf(os.Stderr, "[lid] failed to handle lid open: %v\n", err)
-				}
+				mgr.log.Printf("failed to handle lid open: %v", err)
 			}
 		}
-	})
+	}, mgr.log)
 	mgr.stopWatch = stopWatch
 
 	// Keep the goroutine alive.
@@ -136,16 +126,19 @@ func (mgr *lidCloseButtons) setAction(act string) {
 	// Save preference.
 	prefs, err := preferences.Load()
 	if err != nil {
+		mgr.log.Printf("failed to load preferences: %v", err)
 		return
 	}
 	prefs.LidClose = act
-	_ = preferences.Save(prefs)
+	if err := preferences.Save(prefs); err != nil {
+		mgr.log.Printf("failed to save preferences: %v", err)
+	}
 
 	// Restart the lid monitor with the new action.
 	if mgr.stopWatch != nil {
 		mgr.stopWatch()
 	}
-	go mgr.startMonitor(false)
+	go mgr.startMonitor()
 }
 
 func (mgr *lidCloseButtons) buttonBar() *fyne.Container {
