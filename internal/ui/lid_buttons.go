@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"os/exec"
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 
-	"github.com/willeyh-git/sway-power/internal/lid"
 	"github.com/willeyh-git/sway-power/internal/lid/action"
 	"github.com/willeyh-git/sway-power/internal/logger"
 	"github.com/willeyh-git/sway-power/internal/preferences"
@@ -18,13 +20,12 @@ type lidCloseButtons struct {
 		id    string
 		label string
 	}
-	btns      []*lidCloseBtn
-	bar       *fyne.Container
-	status    setTextable
-	label     fyne.CanvasObject
-	current   string
-	stopWatch func()
-	log       *logger.Logger
+	btns    []*lidCloseBtn
+	bar     *fyne.Container
+	status  setTextable
+	label   fyne.CanvasObject
+	current string
+	log     *logger.Logger
 }
 
 type lidCloseBtn struct {
@@ -81,38 +82,27 @@ func newLidCloseButtons(debug bool, pal Palette, status setTextable) *lidCloseBu
 	}
 	mgr.bar = container.New(&btnBar{}, btnObjects...)
 
-	// Start lid monitor.
-	go mgr.startMonitor()
+	// v1-min status line: daemon service state at startup. Transient
+	// messages (lid button taps, power-profiles-daemon problems)
+	// overwrite it until the next one.
+	mgr.status.SetText(lidHandlerStatus())
 
 	return mgr
 }
 
-func (mgr *lidCloseButtons) startMonitor() {
-	a := action.Action(mgr.current)
-	if err := a.Validate(); err != nil {
-		mgr.log.Printf("invalid action %q: %v", mgr.current, err)
-		return
+// lidHandlerStatus returns the v1-min status line: whether the
+// sway-power daemon unit is active, per `systemctl --user is-active`.
+// Note: is-active proves the process is running, not that the inhibit
+// lock was acquired (see "Daemon readiness" in docs/lid-daemon-plan.md).
+func lidHandlerStatus() string {
+	out, err := exec.Command("systemctl", "--user", "is-active", "sway-power.service").Output()
+	if err != nil {
+		return "lid handler: inactive"
 	}
-
-	mgr.log.Printf("monitoring lid close, action=%s", mgr.current)
-
-	stopWatch := lid.Monitor(func(state lid.State) {
-		switch state {
-		case lid.Closed:
-			mgr.log.Printf("lid closed, executing %s", mgr.current)
-			if err := a.Execute(); err != nil {
-				mgr.log.Printf("failed to execute: %v", err)
-			}
-		case lid.Open:
-			if err := a.OnOpen(); err != nil {
-				mgr.log.Printf("failed to handle lid open: %v", err)
-			}
-		}
-	}, mgr.log)
-	mgr.stopWatch = stopWatch
-
-	// Keep the goroutine alive.
-	select {}
+	if strings.TrimSpace(string(out)) == "active" {
+		return "lid handler: active"
+	}
+	return "lid handler: inactive"
 }
 
 func (mgr *lidCloseButtons) setAction(act string) {
@@ -123,7 +113,7 @@ func (mgr *lidCloseButtons) setAction(act string) {
 		mgr.btns[i].widget.SetActive(a.id == act)
 	}
 
-	// Save preference.
+	// Save preference atomically.
 	prefs, err := preferences.Load()
 	if err != nil {
 		mgr.log.Printf("failed to load preferences: %v", err)
@@ -134,11 +124,8 @@ func (mgr *lidCloseButtons) setAction(act string) {
 		mgr.log.Printf("failed to save preferences: %v", err)
 	}
 
-	// Restart the lid monitor with the new action.
-	if mgr.stopWatch != nil {
-		mgr.stopWatch()
-	}
-	go mgr.startMonitor()
+	// Update status.
+	mgr.status.SetText("Lid action: " + act)
 }
 
 func (mgr *lidCloseButtons) buttonBar() *fyne.Container {
@@ -147,4 +134,9 @@ func (mgr *lidCloseButtons) buttonBar() *fyne.Container {
 
 func (mgr *lidCloseButtons) labelText() fyne.CanvasObject {
 	return mgr.label
+}
+
+// ValidateAction checks that the action is valid.
+func ValidateAction(a string) error {
+	return action.Action(a).Validate()
 }
