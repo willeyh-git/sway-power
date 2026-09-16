@@ -50,7 +50,7 @@ type Palette struct {
 
 	Button       color.NRGBA // unselected button background
 	ButtonLabel  color.NRGBA // unselected button text
-	ButtonBorder color.NRGBA // unselected button border; default: Accent
+	ButtonBorder color.NRGBA // selected button border; default: Accent
 	ButtonHover  color.NRGBA // hover/focus background; default: Accent
 	ButtonActive color.NRGBA // selected background; default: Accent
 

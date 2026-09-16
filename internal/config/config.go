@@ -35,7 +35,7 @@ type UIColors struct {
 	Icon         string `yaml:"icon"`          // battery icon (default: accent)
 	Button       string `yaml:"button"`        // unselected button background
 	ButtonLabel  string `yaml:"button_label"`  // unselected button text
-	ButtonBorder string `yaml:"button_border"` // unselected button border (default: accent)
+	ButtonBorder string `yaml:"button_border"` // selected button border (default: accent)
 	ButtonHover  string `yaml:"button_hover"`  // button hover/focus background (default: accent)
 	ButtonActive string `yaml:"button_active"` // selected button background (default: accent)
 }

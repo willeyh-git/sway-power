@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/theme"
@@ -9,9 +11,9 @@ import (
 
 // toggleButtonWidget is a clickable rectangular button. All colors come
 // from the resolved Palette:
-//   - selected:  ButtonActive background, OnActive text
+//   - selected:  ButtonActive background, OnActive text, ButtonBorder border
 //   - hover/focus: ButtonHover background, OnHover text
-//   - default:   Button background, ButtonLabel text, ButtonBorder border
+//   - default:   Button background, ButtonLabel text, no border
 type toggleButtonWidget struct {
 	widget.BaseWidget
 	pal        Palette
@@ -50,10 +52,12 @@ func (w *toggleButtonWidget) SetActive(active bool) {
 }
 
 func (w *toggleButtonWidget) restyle() {
+	var borderColor color.Color
 	switch {
 	case w.active:
 		w.background.FillColor = w.pal.ButtonActive
 		w.label.Color = w.pal.OnActive
+		borderColor = w.pal.ButtonBorder
 	case w.hovered || w.focused:
 		w.background.FillColor = w.pal.ButtonHover
 		w.label.Color = w.pal.OnHover
@@ -61,7 +65,7 @@ func (w *toggleButtonWidget) restyle() {
 		w.background.FillColor = w.pal.Button
 		w.label.Color = w.pal.ButtonLabel
 	}
-	w.border.FillColor = w.pal.ButtonBorder
+	w.border.FillColor = borderColor
 }
 
 func (w *toggleButtonWidget) CreateRenderer() fyne.WidgetRenderer {
