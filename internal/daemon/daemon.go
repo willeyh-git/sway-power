@@ -11,11 +11,11 @@ import (
 
 // Daemon is the background lid handler. It runs until interrupted.
 type Daemon struct {
-	inhibitor   *Inhibitor
-	monitor     *Monitor
-	handler     *Handler
+	inhibitor    *Inhibitor
+	monitor      *Monitor
+	handler      *Handler
 	prefsWatcher *PreferencesWatcher
-	log         *logger.Logger
+	log          *logger.Logger
 }
 
 // New creates a new Daemon.
@@ -49,16 +49,19 @@ func New(debug bool) (*Daemon, error) {
 	return d, nil
 }
 
-// Run starts the daemon and blocks until shutdown.
+// Run starts the daemon and blocks until SIGTERM/SIGINT.
+//
+// Shutdown is owned by the caller (main.runDaemon defers it), so it
+// happens exactly once.
 func (d *Daemon) Run() {
 	d.log.Printf("daemon: starting")
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	defer signal.Stop(sigCh)
 
 	<-sigCh
 	d.log.Printf("daemon: shutting down")
-	d.Shutdown()
 }
 
 // Shutdown stops all components.
@@ -75,12 +78,12 @@ func (d *Daemon) Shutdown() {
 }
 
 // GetAction returns the current action for status reporting.
+//
+// No Validate() here: the stored action is always validated at set
+// time (Handler.SetAction / NewHandler), so it is always valid.
 func (d *Daemon) GetAction() string {
 	if d.handler != nil {
-		a := d.handler.GetAction()
-		if a.Validate() == nil {
-			return string(a)
-		}
+		return string(d.handler.GetAction())
 	}
 	return "unknown"
 }

@@ -47,6 +47,29 @@ func (m *mockExec) getCalls() []mockCall {
 	return cp
 }
 
+// called reports whether a call with the exact name and args was
+// recorded.
+func (m *mockExec) called(name string, args ...string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, c := range m.calls {
+		if c.name != name || len(c.args) != len(args) {
+			continue
+		}
+		same := true
+		for i := range args {
+			if c.args[i] != args[i] {
+				same = false
+				break
+			}
+		}
+		if same {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *mockExec) exec(name string, args ...string) error {
 	m.mu.Lock()
 	m.calls = append(m.calls, mockCall{name: name, args: args})
@@ -64,26 +87,36 @@ func (m *mockExec) reset() {
 
 // actionRestore saves and restores the original action exec functions after a test.
 type actionRestore struct {
-	origExec    action.ExecFunc
-	origSwaymsg func(args ...string) *exec.Cmd
+	origExec     action.ExecFunc
+	origSwaymsg  func(args ...string) *exec.Cmd
+	origSwaylock func(args ...string) error
 }
 
 func restoreActions(r actionRestore) {
 	action.Exec = r.origExec
 	action.SwaymsgCmd = r.origSwaymsg
+	action.Swaylock = r.origSwaylock
 }
 
 func setupMockActions(t *testing.T) (actionRestore, *mockExec) {
 	t.Helper()
 	m := &mockExec{}
 	r := actionRestore{
-		origExec:    action.Exec,
-		origSwaymsg: action.SwaymsgCmd,
+		origExec:     action.Exec,
+		origSwaymsg:  action.SwaymsgCmd,
+		origSwaylock: action.Swaylock,
 	}
 	action.Exec = m.exec
+	// Recording swaymsg stub: calls are tracked by mockExec; the
+	// returned cmd is a no-op so .Output()/.Run() fail cleanly without
+	// running any real command.
 	action.SwaymsgCmd = func(args ...string) *exec.Cmd {
-		// Return a no-op cmd; the real command is tracked by mockExec.
+		m.exec("swaymsg", args...)
 		return &exec.Cmd{Path: "", Process: nil}
+	}
+	// Recording swaylock stub: no real lock screen is launched.
+	action.Swaylock = func(args ...string) error {
+		return m.exec("swaylock", args...)
 	}
 	t.Cleanup(func() { restoreActions(r) })
 	return r, m
@@ -200,16 +233,25 @@ func TestHandlerExecuteSleep(t *testing.T) {
 	}
 
 	// Verify systemctl suspend was called.
-	calls := mock.getCalls()
-	found := false
-	for _, c := range calls {
-		if c.name == "systemctl" {
-			found = true
-			break
-		}
+	if !mock.called("systemctl", "suspend") {
+		t.Errorf("expected systemctl suspend call, got calls: %v", mock.getCalls())
 	}
-	if !found {
-		t.Errorf("expected systemctl suspend call, got calls: %v", calls)
+}
+
+func TestHandlerExecuteLock(t *testing.T) {
+	_, mock := setupMockActions(t)
+
+	h := NewHandler(action.ActionLock, &testLogger{t})
+	h.HandleLidClosed()
+
+	// The lock action goes through the Swaylock seam: verify
+	// `swaylock -f` was (mocked) launched, and that the action is
+	// preserved on error.
+	if !mock.called("swaylock", "-f") {
+		t.Errorf("expected swaylock -f call, got calls: %v", mock.getCalls())
+	}
+	if got := h.GetAction(); got != action.ActionLock {
+		t.Errorf("expected lock action, got %q", got)
 	}
 }
 
@@ -234,16 +276,17 @@ func TestHandlerHandleLidOpen(t *testing.T) {
 	h := NewHandler(action.ActionNothing, &testLogger{t})
 	h.HandleLidOpen()
 
-	// OnOpen for nothing calls showInternalDisplay which uses SwaymsgCmd.
-	// We verify the handler didn't panic and that swaymsg was not called
-	// (since SwaymsgCmd returns a no-op cmd).
+	// OnOpen for nothing calls showInternalDisplay which queries sway
+	// outputs via swaymsg. Verify that query was (mocked) attempted:
+	// with the no-op stub cmd, .Output() fails, so the enable path is
+	// not reached — the get_outputs call is the assertion target.
 	a := h.GetAction()
 	if a != action.ActionNothing {
 		t.Errorf("expected nothing action, got %q", a)
 	}
-
-	// The swaymsg call is tracked by the mock.
-	_ = mock // swaymsg calls are mocked, no real commands run
+	if !mock.called("swaymsg", "-t", "json", "get_outputs") {
+		t.Errorf("expected swaymsg get_outputs call, got calls: %v", mock.getCalls())
+	}
 }
 
 func TestPreferencesWatcher(t *testing.T) {

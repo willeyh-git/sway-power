@@ -55,11 +55,28 @@ func (a Action) OnOpen() error {
 	}
 }
 
-// execSwaylock runs swaylock to lock the screen.
-// swaylock -f daemonizes, so Start returns once the lock is running and we
-// do not need to hold onto it.
-func execSwaylock() error {
-	cmd := exec.Command("swaylock", "-f")
+// ExecFunc is a function signature for executing commands.
+type ExecFunc func(name string, args ...string) error
+
+// Exec is the package-level command executor. Override in tests to mock
+// command execution (e.g., avoid running swaylock or systemctl).
+var Exec ExecFunc = realExec
+
+// realExec is the default implementation that runs commands via os/exec.
+func realExec(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	return cmd.Run()
+}
+
+// Swaylock runs swaylock. Override in tests to mock the lock action
+// (consistent with Exec and SwaymsgCmd, so no real lock screen is
+// launched in tests).
+var Swaylock = realSwaylock
+
+// realSwaylock runs `swaylock -f`. swaylock -f daemonizes, so Start
+// returns once the lock is running and we do not need to hold onto it.
+func realSwaylock(args ...string) error {
+	cmd := exec.Command("swaylock", args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -71,8 +88,12 @@ func execSwaylock() error {
 	return nil
 }
 
+// execSwaylock runs swaylock to lock the screen.
+func execSwaylock() error {
+	return Swaylock("-f")
+}
+
 // execSystemctl runs systemctl with the given verb.
 func execSystemctl(verb string) error {
-	cmd := exec.Command("systemctl", verb)
-	return cmd.Run()
+	return Exec("systemctl", verb)
 }

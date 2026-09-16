@@ -63,6 +63,7 @@ func runDaemon() {
 	if err != nil {
 		log.Fatalf("daemon: %v", err)
 	}
+	// Shutdown is owned here, not in d.Run(): it happens exactly once.
 	defer d.Shutdown()
 	d.Run()
 }
