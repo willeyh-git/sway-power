@@ -28,7 +28,7 @@ func New(debug bool) (*Daemon, error) {
 
 	d := &Daemon{log: lg}
 
-	// Acquire the inhibit lock in the background. If the session bus or
+	// Acquire the inhibit lock in the background. If the system bus or
 	// logind is unavailable at daemon startup, the Inhibitor retries
 	// every 5s; logind handles the lid switch meanwhile (the documented
 	// transient double-handler window).

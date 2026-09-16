@@ -12,7 +12,7 @@ import (
 // Inhibitor manages a logind inhibit lock via D-Bus.
 //
 // It is a recoverable state machine: acquiring → acquired | failed.
-// A missing or unavailable session bus is a failure state, not a
+// A missing or unavailable system bus is a failure state, not a
 // constructor error: the Inhibitor retries every 5 seconds until it
 // acquires the lock or Release() is called. It never permanently gives
 // up while the daemon lives.
@@ -42,7 +42,7 @@ type Logger interface {
 }
 
 // NewInhibitor creates a new Inhibitor and starts acquiring the logind
-// "handle-lid-switch" block lock in the background. The session bus or
+// "handle-lid-switch" block lock in the background. The system bus or
 // logind may not be ready yet at daemon startup, so the acquire is
 // retried on a 5s tick until it succeeds. NewInhibitor never fails:
 // bus unavailability is a transient state inside the Inhibitor, not a
@@ -104,8 +104,13 @@ func (i *Inhibitor) setState(s State) {
 	i.mu.Unlock()
 }
 
-// acquireOnce connects to the session bus if needed, then makes a single
+// acquireOnce connects to the system bus if needed, then makes a single
 // Inhibit() call on logind via D-Bus.
+//
+// logind is a system service: org.freedesktop.login1 lives on the
+// system bus, not the session bus. An unprivileged Inhibit() goes
+// through polkit (org.freedesktop.login1.inhibit-block-handle-lid-
+// switch) — see "Verify early" in docs/lid-daemon-plan.md.
 func (i *Inhibitor) acquireOnce() error {
 	if err := i.ensureConn(); err != nil {
 		return err
@@ -141,10 +146,10 @@ func (i *Inhibitor) acquireOnce() error {
 	return nil
 }
 
-// ensureConn connects to the session bus (auth + Hello) when we don't
+// ensureConn connects to the system bus (auth + Hello) when we don't
 // have a live connection, reconnecting after a dropped one.
 //
-// The session bus and logind can be briefly unavailable during session
+// The system bus and logind can be briefly unavailable during session
 // startup; the retry loop handles that by calling this again on the
 // next tick.
 //
@@ -158,20 +163,20 @@ func (i *Inhibitor) ensureConn() error {
 		i.conn.Close()
 	}
 
-	// SessionBusPrivate returns a connection that is not ready to use:
+	// SystemBusPrivate returns a connection that is not ready to use:
 	// Dial never authenticates, so Auth and Hello are mandatory before
 	// the first call.
-	conn, err := dbus.SessionBusPrivate()
+	conn, err := dbus.SystemBusPrivate()
 	if err != nil {
-		return fmt.Errorf("connect to session bus: %w", err)
+		return fmt.Errorf("connect to system bus: %w", err)
 	}
 	if err := conn.Auth(nil); err != nil {
 		conn.Close()
-		return fmt.Errorf("session bus auth: %w", err)
+		return fmt.Errorf("system bus auth: %w", err)
 	}
 	if err := conn.Hello(); err != nil {
 		conn.Close()
-		return fmt.Errorf("session bus Hello: %w", err)
+		return fmt.Errorf("system bus Hello: %w", err)
 	}
 
 	i.conn = conn
