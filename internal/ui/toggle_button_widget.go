@@ -1,44 +1,67 @@
 package ui
 
 import (
-	"image/color"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
-// toggleButtonWidget is a clickable widget with a solid rectangular background.
+// toggleButtonWidget is a clickable rectangular button. All colors come
+// from the resolved Palette:
+//   - selected:  ButtonActive background, OnActive text
+//   - hover/focus: ButtonHover background, OnHover text
+//   - default:   Button background, ButtonLabel text, ButtonBorder border
 type toggleButtonWidget struct {
 	widget.BaseWidget
+	pal        Palette
 	label      *canvas.Text
 	background *canvas.Rectangle
 	border     *canvas.Rectangle
+	active     bool
+	hovered    bool
+	focused    bool
 	OnTap      func()
 }
 
-func newToggleButtonWidget(label string, active bool, borderColor, labelColor, activeColor, bgColor, accentColor color.NRGBA) *toggleButtonWidget {
-	background := canvas.NewRectangle(bgColor)
-	border := canvas.NewRectangle(borderColor)
-	labelWidget := canvas.NewText(label, labelColor)
+func newToggleButtonWidget(label string, pal Palette) *toggleButtonWidget {
+	background := canvas.NewRectangle(pal.Button)
+	border := canvas.NewRectangle(pal.ButtonBorder)
+	labelWidget := canvas.NewText(label, pal.ButtonLabel)
 	labelWidget.TextSize = theme.Size(SmallSize)
 
 	w := &toggleButtonWidget{
+		pal:        pal,
 		label:      labelWidget,
 		background: background,
 		border:     border,
 	}
 	w.ExtendBaseWidget(w)
-
-	if active {
-		background.FillColor = accentColor
-		labelWidget.Color = color.White // White text on accent background
-	} else {
-		background.FillColor = activeColor
-	}
+	w.restyle()
 
 	return w
+}
+
+// SetActive marks the button as the selected one and restyles it.
+func (w *toggleButtonWidget) SetActive(active bool) {
+	w.active = active
+	w.restyle()
+	w.Refresh()
+}
+
+func (w *toggleButtonWidget) restyle() {
+	switch {
+	case w.active:
+		w.background.FillColor = w.pal.ButtonActive
+		w.label.Color = w.pal.OnActive
+	case w.hovered || w.focused:
+		w.background.FillColor = w.pal.ButtonHover
+		w.label.Color = w.pal.OnHover
+	default:
+		w.background.FillColor = w.pal.Button
+		w.label.Color = w.pal.ButtonLabel
+	}
+	w.border.FillColor = w.pal.ButtonBorder
 }
 
 func (w *toggleButtonWidget) CreateRenderer() fyne.WidgetRenderer {
@@ -99,7 +122,26 @@ func (r *toggleButtonRenderer) Refresh() {
 
 func (r *toggleButtonRenderer) Destroy() {}
 
-func (r *toggleButtonRenderer) Hovered()     {}
-func (r *toggleButtonRenderer) Unhovered()   {}
-func (r *toggleButtonRenderer) FocusGained() {}
-func (r *toggleButtonRenderer) FocusLost()   {}
+func (r *toggleButtonRenderer) Hovered() {
+	r.widget.hovered = true
+	r.widget.restyle()
+	r.Refresh()
+}
+
+func (r *toggleButtonRenderer) Unhovered() {
+	r.widget.hovered = false
+	r.widget.restyle()
+	r.Refresh()
+}
+
+func (r *toggleButtonRenderer) FocusGained() {
+	r.widget.focused = true
+	r.widget.restyle()
+	r.Refresh()
+}
+
+func (r *toggleButtonRenderer) FocusLost() {
+	r.widget.focused = false
+	r.widget.restyle()
+	r.Refresh()
+}

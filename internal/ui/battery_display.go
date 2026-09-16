@@ -13,7 +13,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/battery"
-	"github.com/willeyh-git/sway-power/internal/config"
 )
 
 // emaSmooth applies exponential moving average smoothing to a time.Duration.
@@ -23,7 +22,9 @@ type emaSmooth struct {
 }
 
 func newEMASmooth(alpha float32) *emaSmooth {
-	return &emaSmooth{alpha: alpha}
+	return &emaSmooth{
+		alpha: alpha,
+	}
 }
 
 func (e *emaSmooth) reset() {
@@ -35,9 +36,9 @@ func (e *emaSmooth) update(newVal time.Duration) time.Duration {
 		e.value = newVal
 		return newVal
 	}
-	n := float32(newVal)
-	o := float32(e.value)
-	e.value = time.Duration(e.alpha*n + (1-e.alpha)*o)
+	n := float64(newVal)
+	o := float64(e.value)
+	e.value = time.Duration(e.alpha*float32(n) + (1-e.alpha)*float32(o))
 	return e.value
 }
 
@@ -47,6 +48,8 @@ type setTextable interface {
 }
 
 // richTextLabel is a single-line rich text label with a fixed style.
+// The text color comes from the style's ColorName via the app theme, so
+// every label stays themeable by the YAML config.
 type richTextLabel struct {
 	rt    *widget.RichText
 	style widget.RichTextStyle
@@ -54,8 +57,8 @@ type richTextLabel struct {
 
 func newRichTextLabel(text string, style widget.RichTextStyle) *richTextLabel {
 	return &richTextLabel{
-		rt:    widget.NewRichText(&widget.TextSegment{Text: text, Style: style}),
 		style: style,
+		rt:    widget.NewRichText(&widget.TextSegment{Text: text, Style: style}),
 	}
 }
 
@@ -70,10 +73,90 @@ func (l *richTextLabel) Object() fyne.CanvasObject {
 	return l.rt
 }
 
+// batteryTrack is a progress track: a shaded background with an accent
+// fill showing the battery percentage.
+type batteryTrack struct {
+	widget.BaseWidget
+	pal  Palette
+	bg   *canvas.Rectangle
+	fill *canvas.Rectangle
+	pct  int
+}
+
+const trackHeight = 8
+
+func newBatteryTrack(pal Palette) *batteryTrack {
+	bg := canvas.NewRectangle(pal.Track)
+	bg.CornerRadius = trackHeight / 2
+	fill := canvas.NewRectangle(pal.Accent)
+	fill.CornerRadius = trackHeight / 2
+
+	t := &batteryTrack{
+		pal:  pal,
+		bg:   bg,
+		fill: fill,
+	}
+	t.ExtendBaseWidget(t)
+	return t
+}
+
+// SetPercentage sets the fill level (0-100) and refreshes.
+func (t *batteryTrack) SetPercentage(pct int) {
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 100 {
+		pct = 100
+	}
+	t.pct = pct
+	t.Refresh()
+}
+
+func (t *batteryTrack) CreateRenderer() fyne.WidgetRenderer {
+	return &batteryTrackRenderer{
+		track:   t,
+		objects: []fyne.CanvasObject{t.bg, t.fill},
+	}
+}
+
+type batteryTrackRenderer struct {
+	track   *batteryTrack
+	objects []fyne.CanvasObject
+}
+
+func (r *batteryTrackRenderer) Layout(size fyne.Size) {
+	r.track.bg.Resize(size)
+	r.track.bg.Move(fyne.NewPos(0, 0))
+
+	fillWidth := size.Width * float32(r.track.pct) / 100
+	if fillWidth > size.Width {
+		fillWidth = size.Width
+	}
+	r.track.fill.Resize(fyne.NewSize(fillWidth, size.Height))
+	r.track.fill.Move(fyne.NewPos(0, 0))
+}
+
+func (r *batteryTrackRenderer) MinSize() fyne.Size {
+	return fyne.NewSize(0, trackHeight)
+}
+
+func (r *batteryTrackRenderer) Objects() []fyne.CanvasObject {
+	return r.objects
+}
+
+func (r *batteryTrackRenderer) Refresh() {
+	r.Layout(r.track.Size())
+	r.track.bg.Refresh()
+	r.track.fill.Refresh()
+}
+
+func (r *batteryTrackRenderer) Destroy() {}
+
 // batteryDisplay builds and updates the battery section.
 type batteryDisplay struct {
 	icon       *canvas.Text
 	percentage *richTextLabel
+	track      *batteryTrack
 	sizeValue  *richTextLabel
 	timeLabel  *richTextLabel
 	timeValue  *richTextLabel
@@ -84,21 +167,23 @@ type batteryDisplay struct {
 	lastStatus battery.Status
 }
 
-func newBatteryDisplay(cfg config.Config) (*fyne.Container, *batteryDisplay) {
-	header := widget.RichTextStyle{SizeName: HeadingSize}
+func newBatteryDisplay(pal Palette) (*fyne.Container, *batteryDisplay) {
+	header := widget.RichTextStyle{SizeName: HeadingSize, ColorName: themeNameTitle}
 	headerBold := widget.RichTextStyle{
 		SizeName:  HeadingSize,
+		ColorName: themeNameValue,
 		TextStyle: fyne.TextStyle{Bold: true},
 	}
-	small := widget.RichTextStyle{SizeName: SmallSize}
+	small := widget.RichTextStyle{SizeName: SmallSize, ColorName: themeNameLabel}
 	smallBold := widget.RichTextStyle{
 		SizeName:  SmallSize,
+		ColorName: themeNameValue,
 		TextStyle: fyne.TextStyle{Bold: true},
 	}
 
 	// Header: [icon] Battery [percentage%]
 	iconSize := theme.Size(HeadingSize)
-	icon := canvas.NewText("󰁹", parseHexColor(cfg.UI.Icon))
+	icon := canvas.NewText("󰁹", pal.Icon)
 	icon.TextStyle = fyne.TextStyle{Monospace: true, Bold: true}
 	icon.TextSize = iconSize
 	percentage := newRichTextLabel("", headerBold)
@@ -114,6 +199,8 @@ func newBatteryDisplay(cfg config.Config) (*fyne.Container, *batteryDisplay) {
 	rateLabel := newRichTextLabel("Discharging:", small)
 	rateValue := newRichTextLabel("", smallBold)
 
+	track := newBatteryTrack(pal)
+
 	// Header row: icon | Battery(grows) | percentage
 	headerRow := container.New(&flexRow{growIdx: 1, gap: 4}, icon, title.Object(), percentage.Object())
 
@@ -126,12 +213,13 @@ func newBatteryDisplay(cfg config.Config) (*fyne.Container, *batteryDisplay) {
 	// 2x2 grid
 	grid := container.New(&grid2x2{colGap: 20}, row1, row2, row3, row4)
 
-	// Stack header and grid
-	content := container.NewVBox(headerRow, grid)
+	// Stack header, track and grid
+	content := container.NewVBox(headerRow, track, grid)
 
 	return content, &batteryDisplay{
 		icon:       icon,
 		percentage: percentage,
+		track:      track,
 		sizeValue:  sizeValue,
 		timeLabel:  timeLabel,
 		timeValue:  timeValue,
@@ -145,16 +233,19 @@ func newBatteryDisplay(cfg config.Config) (*fyne.Container, *batteryDisplay) {
 func (d *batteryDisplay) update(bat *battery.Battery, err error) {
 	if err != nil {
 		d.percentage.SetText("Error")
+		d.track.SetPercentage(0)
 		d.clearDetails()
 		return
 	}
 	if bat == nil {
 		d.percentage.SetText("No battery")
+		d.track.SetPercentage(0)
 		d.clearDetails()
 		return
 	}
 
 	d.percentage.SetText(fmt.Sprintf("%d%%", bat.Percentage))
+	d.track.SetPercentage(bat.Percentage)
 	d.setIcon(bat.Percentage, bat.Status)
 
 	if bat.SizeWh > 0 {
@@ -220,9 +311,9 @@ func (d *batteryDisplay) setIcon(percentage int, status battery.Status) {
 		}
 		d.icon.Text = chargingIconLevels[idx]
 	case battery.StatusFull:
-		d.icon.Text = "󰂄"
+		d.icon.Text = "󰂄 "
 	case battery.StatusNotCharging, battery.StatusUnknown:
-		d.icon.Text = "󰁹"
+		d.icon.Text = "󰁹 "
 	default:
 		idx := percentage / 10
 		if idx >= len(iconLevels) {

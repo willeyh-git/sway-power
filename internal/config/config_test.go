@@ -5,13 +5,22 @@ import (
 	"testing"
 )
 
-func TestColorsValidate(t *testing.T) {
-	valid := Colors{
-		Track:    "#2d2d32",
-		Normal:   "#50c878",
-		Charging: "#50aaff",
-		Warning:  "#f0b43c",
-		Critical: "#e64646",
+func TestUIColorsValidate(t *testing.T) {
+	valid := UIColors{
+		Mode:         "auto",
+		Accent:       "#3584E4",
+		Background:   "#F6F5F4",
+		Track:        "#DEDDDA",
+		Label:        "#77767B",
+		Value:        "#5E5C64",
+		Category:     "#3D3846",
+		Title:        "#241F31",
+		Icon:         "3584e4",
+		Button:       "#DEDDDA",
+		ButtonLabel:  "#5E5C64",
+		ButtonBorder: "#3584E4",
+		ButtonHover:  "#3584E4",
+		ButtonActive: "#3584E4",
 	}
 
 	t.Run("defaults are valid", func(t *testing.T) {
@@ -21,7 +30,7 @@ func TestColorsValidate(t *testing.T) {
 	})
 
 	t.Run("empty values are valid", func(t *testing.T) {
-		var empty Colors
+		var empty UIColors
 		if err := empty.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -29,7 +38,7 @@ func TestColorsValidate(t *testing.T) {
 
 	t.Run("accepts colors without '#' prefix", func(t *testing.T) {
 		c := valid
-		c.Normal = "50c878"
+		c.Value = "5E5C64"
 		if err := c.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -37,7 +46,7 @@ func TestColorsValidate(t *testing.T) {
 
 	t.Run("accepts uppercase hex", func(t *testing.T) {
 		c := valid
-		c.Warning = "#F0B43C"
+		c.Category = "#DEDDDA"
 		if err := c.Validate(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -49,16 +58,11 @@ func TestColorsValidate(t *testing.T) {
 		"#gggggg",     // not hex
 		"not a color", // nonsense
 		"#ff00g8",     // mixed
-		"",            // handled above, but also check explicit
 	}
 
 	for _, v := range invalid {
-		if v == "" {
-			continue
-		}
-
 		c := valid
-		c.Critical = v
+		c.ButtonLabel = v
 
 		t.Run("rejects "+v, func(t *testing.T) {
 			err := c.Validate()
@@ -66,7 +70,7 @@ func TestColorsValidate(t *testing.T) {
 				t.Fatalf("expected error for %q", v)
 			}
 
-			want := `colors.critical: invalid color "` + v + `"`
+			want := `ui.button_label: invalid color "` + v + `"`
 			if err.Error() != want {
 				t.Fatalf("unexpected error format:\n got  %q\n want %q", err.Error(), want)
 			}
@@ -74,16 +78,39 @@ func TestColorsValidate(t *testing.T) {
 	}
 }
 
+func TestModeValidate(t *testing.T) {
+	t.Run("valid modes", func(t *testing.T) {
+		for _, mode := range []string{"", "auto", "light", "dark"} {
+			u := UIColors{Mode: mode}
+			if err := u.Validate(); err != nil {
+				t.Fatalf("expected no error for mode %q, got %v", mode, err)
+			}
+		}
+	})
+
+	t.Run("rejects invalid mode", func(t *testing.T) {
+		u := UIColors{Mode: "blue"}
+		err := u.Validate()
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		want := `ui.mode: invalid mode "blue" (valid: auto, light, dark)`
+		if err.Error() != want {
+			t.Fatalf("got %q, want %q", err.Error(), want)
+		}
+	})
+}
+
 func TestConfigValidateReportsField(t *testing.T) {
 	cfg := Default()
-	cfg.Colors.Track = "#nope"
+	cfg.UI.Track = "#nope"
 
 	err := cfg.Validate()
 	if err == nil {
 		t.Fatal("expected error")
 	}
 
-	if got, want := err.Error(), `colors.track: invalid color "#nope"`; !strings.Contains(err.Error(), want) {
+	if got, want := err.Error(), `ui.track: invalid color "#nope"`; !strings.Contains(err.Error(), want) {
 		t.Fatalf("got %q, want substring %q", got, want)
 	}
 }
@@ -102,7 +129,7 @@ func TestLidCloseValidate(t *testing.T) {
 	t.Run("empty action is valid", func(t *testing.T) {
 		lc := LidClose{}
 		if err := lc.Validate(); err != nil {
-			t.Fatalf("expected no error for empty action, got %v", err)
+			t.Fatalf("expected no error, got %v", err)
 		}
 	})
 
@@ -110,7 +137,7 @@ func TestLidCloseValidate(t *testing.T) {
 		lc := LidClose{Action: "invalid"}
 		err := lc.Validate()
 		if err == nil {
-			t.Fatal("expected error for invalid action")
+			t.Fatal("expected error")
 		}
 		if got := err.Error(); !strings.Contains(got, `lid_close.action: invalid action "invalid"`) {
 			t.Fatalf("got %q, want substring %q", got, `invalid action "invalid"`)

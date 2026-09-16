@@ -11,25 +11,33 @@ import (
 )
 
 type Config struct {
-	Colors    Colors     `yaml:"colors"`
-	UI        UIColors   `yaml:"ui"`
-	LidClose  LidClose   `yaml:"lid_close"`
+	UI       UIColors `yaml:"ui"`
+	LidClose LidClose `yaml:"lid_close"`
 }
 
 type LidClose struct {
 	Action string `yaml:"action"`
 }
 
+// UIColors holds user-overridable theme colors. Every field is optional:
+// an empty value means "fall back to the default palette" (see ui.BuildPalette).
+// A user-provided value always takes precedence, so e.g. overriding only
+// ui.accent leaves everything else on its fallback.
 type UIColors struct {
-	Label      string `yaml:"label"`
-	Value      string `yaml:"value"`
-	Icon       string `yaml:"icon"`
-	Title      string `yaml:"title"`
-	Category   string `yaml:"category"`
-	Border     string `yaml:"border"`
-	Background string `yaml:"background"`
-	Active     string `yaml:"active"`
-	Accent     string `yaml:"accent"`
+	Mode         string `yaml:"mode"`          // auto | light | dark
+	Accent       string `yaml:"accent"`        // blue 3 by default; also drives icon, borders, hover, selected, track fill
+	Background   string `yaml:"background"`    // window background
+	Track        string `yaml:"track"`         // battery track background (a different shade of background)
+	Label        string `yaml:"label"`         // muted text: grid labels, status line
+	Value        string `yaml:"value"`         // emphasized text: grid values, percentage
+	Category     string `yaml:"category"`      // section headings: "Power Profile", "Lid Settings"
+	Title        string `yaml:"title"`         // strongest text: "Battery" heading
+	Icon         string `yaml:"icon"`          // battery icon (default: accent)
+	Button       string `yaml:"button"`        // unselected button background
+	ButtonLabel  string `yaml:"button_label"`  // unselected button text
+	ButtonBorder string `yaml:"button_border"` // unselected button border (default: accent)
+	ButtonHover  string `yaml:"button_hover"`  // button hover/focus background (default: accent)
+	ButtonActive string `yaml:"button_active"` // selected button background (default: accent)
 }
 
 // Validate checks that the lid close action is valid.
@@ -45,57 +53,33 @@ func (l LidClose) Validate() error {
 	}
 }
 
-type Colors struct {
-	Track    string `yaml:"track"`
-	Normal   string `yaml:"normal"`
-	Charging string `yaml:"charging"`
-	Warning  string `yaml:"warning"`
-	Critical string `yaml:"critical"`
-}
-
-// Validate checks that every configured color is a valid #RRGGBB hex color.
-// Empty values are treated as "unset" and fall back to the defaults.
-func (c Colors) Validate() error {
-	fields := []struct {
-		key   string
-		value string
-	}{
-		{"track", c.Track},
-		{"normal", c.Normal},
-		{"charging", c.Charging},
-		{"warning", c.Warning},
-		{"critical", c.Critical},
-	}
-
-	for _, f := range fields {
-		if f.value == "" {
-			continue
-		}
-
-		if !isValidHexColor(f.value) {
-			return fmt.Errorf("colors.%s: invalid color %q", f.key, f.value)
-		}
-	}
-
-	return nil
-}
-
-// Validate checks that every configured UI color is a valid #RRGGBB hex color.
+// Validate checks that the ui section is syntactically valid.
 // Empty values are treated as "unset" and fall back to the defaults.
 func (u UIColors) Validate() error {
+	mode := strings.ToLower(strings.TrimSpace(u.Mode))
+	switch mode {
+	case "", "auto", "light", "dark":
+	default:
+		return fmt.Errorf("ui.mode: invalid mode %q (valid: auto, light, dark)", u.Mode)
+	}
+
 	fields := []struct {
 		key   string
 		value string
 	}{
+		{"accent", u.Accent},
+		{"background", u.Background},
+		{"track", u.Track},
 		{"label", u.Label},
 		{"value", u.Value},
-		{"icon", u.Icon},
-		{"title", u.Title},
 		{"category", u.Category},
-		{"border", u.Border},
-		{"background", u.Background},
-		{"active", u.Active},
-		{"accent", u.Accent},
+		{"title", u.Title},
+		{"icon", u.Icon},
+		{"button", u.Button},
+		{"button_label", u.ButtonLabel},
+		{"button_border", u.ButtonBorder},
+		{"button_hover", u.ButtonHover},
+		{"button_active", u.ButtonActive},
 	}
 
 	for _, f := range fields {
@@ -114,9 +98,6 @@ func (u UIColors) Validate() error {
 // Validate checks all config values that can be wrong without being
 // syntactically invalid YAML.
 func (c Config) Validate() error {
-	if err := c.Colors.Validate(); err != nil {
-		return err
-	}
 	if err := c.UI.Validate(); err != nil {
 		return err
 	}
@@ -143,23 +124,8 @@ func isValidHexColor(value string) bool {
 
 func Default() Config {
 	return Config{
-		Colors: Colors{
-			Track:    "#2d2d32",
-			Normal:   "#50c878",
-			Charging: "#50aaff",
-			Warning:  "#f0b43c",
-			Critical: "#e64646",
-		},
 		UI: UIColors{
-			Label:      "#565656",   // Dark gray for light mode
-			Value:      "#000000",   // Black for values
-			Icon:       "#000000",   // Black for icons
-			Title:      "#000000",   // Black for titles
-			Category:   "#000000",   // Black for category labels
-			Border:     "#c0c0c0",   // Subtle gray for borders
-			Background: "#ffffff",   // White for canvas background
-			Active:     "#d0d0d0",   // Subtle gray for active buttons
-			Accent:     "#c6a0f6",   // Mauve for active button highlight
+			Mode: "auto", // follow the system theme
 		},
 		LidClose: LidClose{
 			Action: "lock", // default: lock screen when lid closes
@@ -206,24 +172,20 @@ func Load() (Config, error) {
 }
 
 func merge(dst *Config, src Config) {
-	if src.Colors.Track != "" {
-		dst.Colors.Track = src.Colors.Track
+	if src.UI.Mode != "" {
+		dst.UI.Mode = src.UI.Mode
 	}
 
-	if src.Colors.Normal != "" {
-		dst.Colors.Normal = src.Colors.Normal
+	if src.UI.Accent != "" {
+		dst.UI.Accent = src.UI.Accent
 	}
 
-	if src.Colors.Charging != "" {
-		dst.Colors.Charging = src.Colors.Charging
+	if src.UI.Background != "" {
+		dst.UI.Background = src.UI.Background
 	}
 
-	if src.Colors.Warning != "" {
-		dst.Colors.Warning = src.Colors.Warning
-	}
-
-	if src.Colors.Critical != "" {
-		dst.Colors.Critical = src.Colors.Critical
+	if src.UI.Track != "" {
+		dst.UI.Track = src.UI.Track
 	}
 
 	if src.UI.Label != "" {
@@ -234,32 +196,36 @@ func merge(dst *Config, src Config) {
 		dst.UI.Value = src.UI.Value
 	}
 
-	if src.UI.Icon != "" {
-		dst.UI.Icon = src.UI.Icon
+	if src.UI.Category != "" {
+		dst.UI.Category = src.UI.Category
 	}
 
 	if src.UI.Title != "" {
 		dst.UI.Title = src.UI.Title
 	}
 
-	if src.UI.Category != "" {
-		dst.UI.Category = src.UI.Category
+	if src.UI.Icon != "" {
+		dst.UI.Icon = src.UI.Icon
 	}
 
-	if src.UI.Border != "" {
-		dst.UI.Border = src.UI.Border
+	if src.UI.Button != "" {
+		dst.UI.Button = src.UI.Button
 	}
 
-	if src.UI.Background != "" {
-		dst.UI.Background = src.UI.Background
+	if src.UI.ButtonLabel != "" {
+		dst.UI.ButtonLabel = src.UI.ButtonLabel
 	}
 
-	if src.UI.Active != "" {
-		dst.UI.Active = src.UI.Active
+	if src.UI.ButtonBorder != "" {
+		dst.UI.ButtonBorder = src.UI.ButtonBorder
 	}
 
-	if src.UI.Accent != "" {
-		dst.UI.Accent = src.UI.Accent
+	if src.UI.ButtonHover != "" {
+		dst.UI.ButtonHover = src.UI.ButtonHover
+	}
+
+	if src.UI.ButtonActive != "" {
+		dst.UI.ButtonActive = src.UI.ButtonActive
 	}
 
 	if src.LidClose.Action != "" {

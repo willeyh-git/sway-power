@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/willeyh-git/sway-power/internal/battery"
@@ -22,32 +23,38 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 		os.Setenv("FYNE_SCALE", fmt.Sprintf("%.2f", scale))
 	}
 
+	// Resolve the palette: user colors take precedence, everything else
+	// falls back to the Advaita-based light/dark defaults.
+	sysDark := app.Settings().ThemeVariant() == theme.VariantDark
+	pal := BuildPalette(cfg, sysDark)
+
 	// Set custom theme
-	app.Settings().SetTheme(CustomTheme())
+	app.Settings().SetTheme(NewTheme(pal))
 
 	window := app.NewWindow("Sway Power")
 
 	// Battery display
-	batContent, batDisplay := newBatteryDisplay(cfg)
+	batContent, batDisplay := newBatteryDisplay(pal)
 
 	// Shared status line
 	status := newRichTextLabel("", widget.RichTextStyle{
 		SizeName:  SmallSize,
 		Alignment: fyne.TextAlignCenter,
+		ColorName: themeNameValue,
 	})
 
 	// Power profile buttons
-	powerMgr := newPowerProfileManager(debug, cfg, status)
+	powerMgr := newPowerProfileManager(debug, pal, status)
 
 	// Lid close buttons
-	lidMgr := newLidCloseButtons(debug, cfg, status)
+	lidMgr := newLidCloseButtons(debug, pal, status)
 
 	// Layout owns all spacing
 	layout := NewLayout(batContent, status.Object(), widget.NewSeparator(),
 		powerMgr.labelText(), powerMgr.buttonBar(), lidMgr.labelText(), lidMgr.buttonBar())
 
 	// Set content with background
-	bg := canvas.NewRectangle(parseHexColor(cfg.UI.Background))
+	bg := canvas.NewRectangle(pal.Background)
 	bg.Resize(fyne.NewSize(400, 180))
 	content := layout.Container()
 	window.SetContent(container.NewMax(bg, content))

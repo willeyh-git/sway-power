@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"os"
 
 	"fyne.io/fyne/v2"
@@ -10,7 +9,6 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 
-	"github.com/willeyh-git/sway-power/internal/config"
 	"github.com/willeyh-git/sway-power/internal/lid"
 	"github.com/willeyh-git/sway-power/internal/lid/action"
 	"github.com/willeyh-git/sway-power/internal/preferences"
@@ -18,19 +16,16 @@ import (
 
 // lidCloseButtons handles lid close action selection.
 type lidCloseButtons struct {
-	actions     []struct {
+	actions []struct {
 		id    string
 		label string
 	}
-	btns        []*lidCloseBtn
-	bar         *fyne.Container
-	status      setTextable
-	label       fyne.CanvasObject
-	current     string
-	stopWatch   func()
-	bgColor     color.NRGBA
-	activeColor color.NRGBA
-	accentColor color.NRGBA
+	btns      []*lidCloseBtn
+	bar       *fyne.Container
+	status    setTextable
+	label     fyne.CanvasObject
+	current   string
+	stopWatch func()
 }
 
 type lidCloseBtn struct {
@@ -38,7 +33,7 @@ type lidCloseBtn struct {
 	label  *canvas.Text
 }
 
-func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidCloseButtons {
+func newLidCloseButtons(debug bool, pal Palette, status setTextable) *lidCloseButtons {
 	actions := []struct {
 		id    string
 		label string
@@ -59,22 +54,20 @@ func newLidCloseButtons(debug bool, cfg config.Config, status setTextable) *lidC
 	current := prefs.LidClose
 
 	mgr := &lidCloseButtons{
-		actions:     actions,
-		status:      status,
-		label:       canvas.NewText("Lid Settings", parseHexColor(cfg.UI.Category)),
-		current:     current,
-		bgColor:     parseHexColor(cfg.UI.Background),
-		activeColor: parseHexColor(cfg.UI.Active),
-		accentColor: parseHexColor(cfg.UI.Accent),
+		actions: actions,
+		status:  status,
+		label:   canvas.NewText("Lid Settings", pal.Category),
+		current: current,
 	}
 	mgr.label.(*canvas.Text).TextSize = theme.Size(SmallSize)
 	mgr.label.(*canvas.Text).TextStyle = fyne.TextStyle{Bold: true}
 	mgr.label.(*canvas.Text).Alignment = fyne.TextAlignLeading
-	mgr.label.(*canvas.Text).Color = parseHexColor(cfg.UI.Category)
+	mgr.label.(*canvas.Text).Color = pal.Category
 
 	var btnObjects []fyne.CanvasObject
 	for i, a := range actions {
-		w := newToggleButtonWidget(a.label, a.id == current, parseHexColor(cfg.UI.Border), parseHexColor(cfg.UI.Value), parseHexColor(cfg.UI.Active), parseHexColor(cfg.UI.Background), parseHexColor(cfg.UI.Accent))
+		w := newToggleButtonWidget(a.label, pal)
+		w.SetActive(a.id == current)
 		btn := &lidCloseBtn{
 			widget: w,
 			label:  w.label,
@@ -115,7 +108,7 @@ func (mgr *lidCloseButtons) startMonitor(debug bool) {
 			}
 			if err := a.Execute(); err != nil {
 				if debug {
-					fmt.Fprintf(os.Stderr, "[lid] failed to execute %s: %v\n", mgr.current, err)
+					fmt.Fprintf(os.Stderr, "[lid] failed to execute: %v\n", err)
 				}
 			}
 		case lid.Open:
@@ -137,15 +130,7 @@ func (mgr *lidCloseButtons) setAction(idx int, act string) {
 
 	// Update buttons.
 	for i, a := range mgr.actions {
-		if a.id == act {
-			mgr.btns[i].widget.background.FillColor = mgr.accentColor
-			mgr.btns[i].widget.label.Color = color.White // White text on accent background
-		} else {
-			mgr.btns[i].widget.background.FillColor = mgr.bgColor
-		}
-	}
-	for _, b := range mgr.btns {
-		b.widget.Refresh()
+		mgr.btns[i].widget.SetActive(a.id == act)
 	}
 
 	// Save preference.
