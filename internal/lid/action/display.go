@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// SwaymsgCmd is the swaymsg executor. Override in tests to mock
+// swaymsg calls (e.g., avoid calling swaymsg in tests).
+var SwaymsgCmd = func(args ...string) *exec.Cmd {
+	return exec.Command("swaymsg", args...)
+}
+
 // swayOutput mirrors the fields of sway's `get_outputs` JSON that we care
 // about.
 type swayOutput struct {
@@ -18,7 +24,7 @@ type swayOutput struct {
 
 // getOutputs queries sway for the current list of outputs.
 func getOutputs() ([]swayOutput, error) {
-	out, err := exec.Command("swaymsg", "-t", "json", "get_outputs").Output()
+	out, err := SwaymsgCmd("-t", "json", "get_outputs").Output()
 	if err != nil {
 		return nil, fmt.Errorf("swaymsg get_outputs: %w", err)
 	}
@@ -79,7 +85,7 @@ func hideInternalDisplay() error {
 
 	var errs []error
 	for _, name := range outputsToDisable(outputs) {
-		if err := exec.Command("swaymsg", "output", name, "disable").Run(); err != nil {
+		if err := SwaymsgCmd("output", name, "disable").Run(); err != nil {
 			errs = append(errs, fmt.Errorf("disable %s: %w", name, err))
 		}
 	}
@@ -97,7 +103,7 @@ func showInternalDisplay() error {
 	var errs []error
 	for _, o := range outputs {
 		if isInternalDisplay(o) && !o.Enabled {
-			if err := exec.Command("swaymsg", "output", o.Name, "enable").Run(); err != nil {
+			if err := SwaymsgCmd("output", o.Name, "enable").Run(); err != nil {
 				errs = append(errs, fmt.Errorf("enable %s: %w", o.Name, err))
 			}
 		}
