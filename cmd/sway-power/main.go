@@ -1,3 +1,4 @@
+// sway-power is a system tray power widget for sway.
 package main
 
 import (

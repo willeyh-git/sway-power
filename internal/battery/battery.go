@@ -1,3 +1,4 @@
+// Package battery reads battery status from /sys/class/power_supply.
 package battery
 
 import (

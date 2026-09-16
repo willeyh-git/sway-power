@@ -1,3 +1,4 @@
+// Package ui builds the fyne user interface for the power widget.
 package ui
 
 import (

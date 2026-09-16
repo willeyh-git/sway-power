@@ -1,3 +1,4 @@
+// Package config loads and validates sway-power configuration.
 package config
 
 import (

@@ -1,3 +1,4 @@
+// Package lid monitors lid open/close state and provides a suspend inhibitor.
 package lid
 
 import (

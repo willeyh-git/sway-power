@@ -1,3 +1,4 @@
+// Package action implements actions executed on lid open/close events.
 package action
 
 import (

@@ -1,3 +1,4 @@
+// Package preferences persists user preferences to disk.
 package preferences
 
 import (

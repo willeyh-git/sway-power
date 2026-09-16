@@ -1,3 +1,4 @@
+// Package power manages power profiles through a power-profiles-daemon compatible daemon.
 package power
 
 import (
