@@ -201,17 +201,28 @@ func (d *batteryDisplay) update(bat *battery.Battery, err error) {
 }
 
 var iconLevels = []string{
-	"󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹",
+	"󰁺 ", "󰁻 ", "󰁼 ", "󰁽 ", "󰁾 ", "󰁿 ", "󰂀 ", "󰂁 ", "󰂂 ",
+}
+
+var chargingIconLevels = []string{
+	"󰢜 ", "󰂆 ", "󰂇 ", "󰂈 ", "󰢝 ", "󰢞 ", "󰂊 ", "󰂋 ", "󰂅 ",
 }
 
 func (d *batteryDisplay) setIcon(percentage int, status battery.Status) {
 	switch status {
 	case battery.StatusCharging:
-		d.icon.Text = "󰂄"
+		idx := percentage / 10
+		if idx >= len(chargingIconLevels) {
+			idx = len(chargingIconLevels) - 1
+		}
+		if idx < 0 {
+			idx = 0
+		}
+		d.icon.Text = chargingIconLevels[idx]
 	case battery.StatusFull:
-		d.icon.Text = "󰚥"
+		d.icon.Text = "󰂄"
 	case battery.StatusNotCharging, battery.StatusUnknown:
-		d.icon.Text = "󰚥"
+		d.icon.Text = "󰁹"
 	default:
 		idx := percentage / 10
 		if idx >= len(iconLevels) {
