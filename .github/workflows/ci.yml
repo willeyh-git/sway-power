@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      # Same dependency set the README documents for Debian/Ubuntu: the
+      # Fyne GUI is cgo and needs the C toolchain + GL/X11 headers.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
+      - name: vet
+        run: make vet
+      - name: test (-race)
+        run: make test
+      - name: build
+        run: make build
+
+  release:
+    needs: test
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git describe needs tag history
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
+      - name: Build release binary
+        run: make release BINARY=sway-power_linux_amd64
+      - name: Checksum
+        run: sha256sum sway-power_linux_amd64 > SHA256SUMS.txt
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sway-power_linux_amd64
+            SHA256SUMS.txt
+        # GITHUB_TOKEN (default) is sufficient for release creation.
