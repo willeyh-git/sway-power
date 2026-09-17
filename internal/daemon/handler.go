@@ -17,7 +17,7 @@ type Handler struct {
 	// may have changed e.g. nothing → lock/sleep while the lid was closed.
 	// Entries are removed once their restore succeeds.
 	disabledByUs map[string]bool
-	log            Logger
+	log          Logger
 }
 
 // NewHandler creates a new Handler with the given initial action.
