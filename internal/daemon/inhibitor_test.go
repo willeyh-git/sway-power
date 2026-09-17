@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/godbus/dbus/v5"
 )
 
 // mockBus is a busConn for tests: it can simulate logind disappearing
@@ -319,4 +321,30 @@ func TestInhibitorReleaseAfterAcquire(t *testing.T) {
 	if got := f.count(); got != before {
 		t.Errorf("after Release: expected no new connections, got %d (was %d)", got, before)
 	}
+}
+
+// TestConnectSystemBusReal connects to the real system bus and runs the
+// production connectSystemBus, including the NameOwnerChanged
+// subscription.
+//
+// Regression: the code used to pass an explicit
+// WithMatchOption("type", "signal") on top of the type='signal' that
+// AddMatchSignal adds internally, producing a rule with a duplicate
+// type key. dbus-broker (Fedora, Arch) rejects that rule with
+// "Invalid match rule"; the legacy dbus-daemon tolerates duplicates —
+// which is why this never surfaced outside dbus-broker systems.
+//
+// Skips when no system bus is available (e.g. CI).
+func TestConnectSystemBusReal(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short")
+	}
+	if _, err := dbus.SystemBusPrivate(); err != nil {
+		t.Skipf("no system bus available: %v", err)
+	}
+	c, err := connectSystemBus()
+	if err != nil {
+		t.Fatalf("connectSystemBus: %v", err)
+	}
+	defer c.close()
 }
