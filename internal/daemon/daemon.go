@@ -26,6 +26,12 @@ type Daemon struct {
 func New(debug bool) (*Daemon, error) {
 	lg := logger.New(true, "[daemon] ")
 
+	// Diagnose the Sway/systemd session environment up front: every
+	// missing piece (WAYLAND_DISPLAY, XDG_RUNTIME_DIR, XDG_SESSION_TYPE,
+	// swaylock/swaymsg/systemctl on PATH) is logged as a prominent
+	// "session:" warning instead of degrading silently.
+	checkSession(lg)
+
 	d := &Daemon{log: lg}
 
 	// Acquire the inhibit lock in the background. If the system bus or

@@ -84,6 +84,43 @@ the unit and restarts the service.
 - to build: **Go 1.27.1+**, and for the GUI a C toolchain plus the usual
   Fyne desktop dependencies (X11/Wayland headers)
 
+### Sway / systemd session requirement
+
+The daemon is a systemd **user** service whose child processes (`swaylock`,
+`swaymsg`, `systemctl`) must be able to reach the **running Sway session**.
+That requires all of the following:
+
+- you are actually *in* a Sway session — installing sway is not enough; the
+  session the daemon inherits must be a live Wayland/Sway one
+- the systemd **user** manager is running and your session reaches
+  `graphical-session.target` (the unit's integration target). Plain Sway
+  installations launched outside the usual display-session integration are
+  **not** guaranteed to reach it; check from inside your session with
+  `systemctl --user status graphical-session.target`
+- the session environment the child processes need is propagated to the
+  user manager:
+  - `WAYLAND_DISPLAY` — `swaylock`/`swaymsg` address the compositor through
+    it. The bootstrap runs `systemctl --user import-environment` with it;
+    if you ever (re)start the daemon from a different shell than your Sway
+    session, re-import it:
+    `systemctl --user import-environment WAYLAND_DISPLAY`
+  - `XDG_RUNTIME_DIR` — the `systemctl --user` manager and sway's IPC
+    socket live under it; it is set by the systemd user session itself
+
+At startup the daemon checks exactly these and logs a prominent
+`session:`-prefixed warning for each missing piece (unset `WAYLAND_DISPLAY`,
+unset `XDG_RUNTIME_DIR`, `XDG_SESSION_TYPE` set to something other than
+`wayland`, or `swaylock`/`swaymsg`/`systemctl` not on `PATH`). It does **not**
+exit on them — each affected action then fails with its own error — but the
+startup warnings make a broken session diagnosable instead of silently
+degraded:
+
+```sh
+journalctl --user -u sway-power | grep 'session:'   # startup session warnings
+systemctl --user show-environment                    # what the user manager has
+systemctl --user status graphical-session.target     # is the unit even started?
+```
+
 ## Lid switch discovery (hardware compatibility)
 
 The monitor discovers the lid switch at startup and logs what it found:
