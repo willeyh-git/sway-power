@@ -16,14 +16,17 @@ type Daemon struct {
 	handler      *Handler
 	prefsWatcher *PreferencesWatcher
 	log          *logger.Logger
+	version      string
 }
 
 // New creates a new Daemon.
 //
 // The daemon always logs to stderr — under systemd that is the journal —
 // because the plan requires inhibitor failures to be logged prominently.
-// The debug flag only enables chatty per-poll diagnostics.
-func New(debug bool) (*Daemon, error) {
+// The debug flag only enables chatty per-poll diagnostics. version is the
+// build version (embedded via -ldflags); it is logged at startup so a
+// stale or just-upgraded daemon is identifiable in the journal.
+func New(debug bool, version string) (*Daemon, error) {
 	lg := logger.New(true, "[daemon] ")
 
 	// Diagnose the Sway/systemd session environment up front: every
@@ -32,7 +35,7 @@ func New(debug bool) (*Daemon, error) {
 	// "session:" warning instead of degrading silently.
 	checkSession(lg)
 
-	d := &Daemon{log: lg}
+	d := &Daemon{log: lg, version: version}
 
 	// Acquire the inhibit lock in the background. If the system bus or
 	// logind is unavailable at daemon startup, the Inhibitor retries
@@ -64,7 +67,7 @@ func New(debug bool) (*Daemon, error) {
 // Shutdown is owned by the caller (main.runDaemon defers it), so it
 // happens exactly once.
 func (d *Daemon) Run() {
-	d.log.Printf("daemon: starting")
+	d.log.Printf("daemon: starting (sway-power %s)", d.version)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)

@@ -165,6 +165,7 @@ sway-power install         # install + start the lid handler service
 sway-power uninstall       # stop, disable, and remove the lid handler service
 sway-power daemon          # the headless daemon (normally run by systemd, not by you)
 sway-power -debug daemon   # -debug goes before the subcommand
+sway-power --version       # the build version (embedded from the git tag)
 ```
 
 `-debug` logs D-Bus activity and per-poll diagnostics to stderr. The daemon
@@ -222,11 +223,18 @@ internal/
 ## Development
 
 ```sh
-go test ./...          # unit tests — fully mocked, no real commands run;
+make test              # unit tests, with -race — mandatory: the daemon has
+                       # concurrent lifecycles (inhibitor, monitor, prefs
+                       # watcher) and only the race detector covers them;
+                       # fully mocked, no real commands run;
                        # TestMonitorRealLidSource additionally probes this
                        # machine's lid switch (skips when absent)
-go vet ./...
+make vet               # go vet ./...
 ```
+
+`make build` / `make release` embed the version from `git describe`
+(`-ldflags -X main.version=…`), so `sway-power --version` and the daemon's
+`daemon: starting (sway-power …)` journal line report the build.
 
 The inhibitor's retry/recovery behavior is the core correctness property
 of the lid architecture and is what the tests focus on.
