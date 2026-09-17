@@ -42,10 +42,15 @@ The daemon owns four components:
   releases it if the process dies. If the bus/logind is unavailable or the
   call is denied, the inhibitor retries every 5 s and never gives up while
   the daemon lives.
-- **Monitor** — polls the lid state (`/proc/acpi/button/lid/*/state` or
-  `/sys/class/input/*/device`) every 500 ms and reports changes. Fires once
-  at startup with the initial state (if the lid is already closed, the
-  action fires once).
+- **Monitor** — consumes the lid switch's evdev input device
+  (`/dev/input/eventN`, discovered via the `/sys/class/input/inputN`
+  class entry whose `name` is `Lid Switch`) for zero-latency transitions,
+  and reads the state
+  file (`/proc/acpi/button/lid/*/state` or
+  `/sys/class/input/*/device/lid_switch`) once for the initial state and
+  every 500 ms as a backstop, so a missed event can never leave the daemon
+  out of sync. Reports changes: once at startup with the initial state (if
+  the lid is already closed, the action fires once), then on each change.
 - **Preferences watcher** — polls `preferences.json` mtime every second and,
   on a valid change, **atomically swaps** the running action. The monitor is
   never restarted. On a corrupt file the last-good action is kept.
@@ -78,6 +83,26 @@ the unit and restarts the service.
   buttons)
 - to build: **Go 1.27.1+**, and for the GUI a C toolchain plus the usual
   Fyne desktop dependencies (X11/Wayland headers)
+
+## Lid switch discovery (hardware compatibility)
+
+The monitor discovers the lid switch at startup and logs what it found:
+
+| Source | Location | Role | Verified |
+|---|---|---|---|
+| evdev input device | `/dev/input/eventN`, where `inputN` is the `/sys/class/input` class entry whose `name` is `Lid Switch` (same index `N`) | primary: real input event stream (`SW_LID`, 1 = open, 0 = closed) | yes — `input0` on the verified machine maps to `/dev/input/event0` (`capabilities/sw` exposes `SW_LID`) |
+| ACPI proc interface | `/proc/acpi/button/lid/*/state` (`open` / `closed`) | initial state + 500 ms polling backstop | yes — `LID0/state` present, format `state:      open` |
+| sysfs attribute | `/sys/class/input/*/device/lid_switch` (`1` / `0`) | fallback state file for hardware that exposes the attribute via the input class | not observed on the verified machine (its attribute lives under the platform device, not the input class); probed in order |
+
+The verified machine has both an ACPI proc interface and the evdev device,
+which is the common laptop configuration. If **no** source is found the
+monitor logs `lid: could not find lid switch`, disables itself, and logind
+keeps handling the lid — the daemon still runs (inhibitor included).
+
+Note on the sysfs row: the pre-rewrite code looked for a `state` file next
+to the `lid_switch` attribute, which no hardware has (the attribute itself
+carries the 0/1 state) — that probe was dead. The monitor now reads the
+attribute directly.
 
 ## Build
 
@@ -156,7 +181,9 @@ docs/
 ## Development
 
 ```sh
-go test ./...          # unit tests — fully mocked, no real commands run
+go test ./...          # unit tests — fully mocked, no real commands run;
+                       # TestMonitorRealLidSource additionally probes this
+                       # machine's lid switch (skips when absent)
 go vet ./...
 ```
 
