@@ -62,7 +62,10 @@ jobs:
       # gh CLI (preinstalled on runners) instead of a JS action: it
       # creates the release if missing, streams the assets natively, and
       # is immune to the node20/node24 action-runtime churn.
-      # GITHUB_TOKEN (already set by Actions) has contents:write from
-      # the top-level permissions block.
+      # GH_TOKEN explicitly: gh in Actions refuses to auto-use
+      # GITHUB_TOKEN. It has contents:write from the top-level
+      # permissions block.
       - name: Publish to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: gh release upload "${GITHUB_REF_NAME}" sway-power_linux_amd64 SHA256SUMS.txt --clobber
