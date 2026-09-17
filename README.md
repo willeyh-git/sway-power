@@ -70,10 +70,11 @@ link in the GUI's Lid Settings section. Both do:
    `swaylock`/`swaymsg` children see `WAYLAND_DISPLAY`),
 3. `systemctl --user enable --now sway-power`.
 
-If the unit is unchanged, install is a no-op and does **not** manage the
-unit's lifecycle, so a daemon you deliberately stopped stays stopped. If you
+If the unit is unchanged, install rewrites nothing, but if the service is
+**running** it restarts it, so an in-place binary upgrade (same path,
+new binary) takes effect instead of waiting for the next login. A daemon you deliberately stopped stays stopped. If you
 rebuild and the binary path changes, re-run install: it rewrites the unit
-and restarts the service. `sway-power uninstall` (or the GUI link) stops
+and restarts the service either way. `sway-power uninstall` (or the GUI link) stops
 the service, disables it, and removes the unit.
 
 ## Requirements
