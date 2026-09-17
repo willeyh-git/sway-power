@@ -5,6 +5,13 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  # Re-run a release build on demand (e.g. after a failed publish).
+  workflow_dispatch:
+
+# GITHUB_TOKEN is read-only by default on public repos (2025 on); the
+# release job needs to create the release and upload assets.
+permissions:
+  contents: write
 
 jobs:
   test:
