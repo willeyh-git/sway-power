@@ -76,39 +76,38 @@ func outputsToDisable(outputs []swayOutput) []string {
 }
 
 // hideInternalDisplay turns off the internal laptop display when an external
-// monitor is connected. Returns nil when nothing had to be done.
-func hideInternalDisplay() error {
+// monitor is connected. It returns the names of the outputs it successfully
+// disabled (the caller owns restoring them) and an error when a disable
+// failed. Returns nil names when nothing had to be done.
+func hideInternalDisplay() ([]string, error) {
 	outputs, err := getOutputs()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	var disabled []string
 	var errs []error
 	for _, name := range outputsToDisable(outputs) {
 		if err := SwaymsgCmd("output", name, "disable").Run(); err != nil {
 			errs = append(errs, fmt.Errorf("disable %s: %w", name, err))
+			continue
 		}
+		disabled = append(disabled, name)
 	}
-	return errors.Join(errs...)
+	return disabled, errors.Join(errs...)
 }
 
-// ShowInternalDisplay re-enables internal outputs that are currently
-// disabled (e.g. after the lid was closed with "nothing" selected).
-// Display ownership is tracked by the daemon handler, which calls this on
-// lid open whenever sway-power disabled the internal display —
-// independent of the currently configured action.
-func ShowInternalDisplay() error {
-	outputs, err := getOutputs()
-	if err != nil {
-		return err
-	}
-
+// ShowInternalDisplay re-enables exactly the outputs sway-power disabled
+// (e.g. after the lid was closed with "nothing" selected). Display
+// ownership is tracked by the daemon handler, which passes in the names it
+// recorded and calls this on lid open — independent of the currently
+// configured action. Outputs the user disabled themselves are not in the
+// list and are therefore left alone.
+func ShowInternalDisplay(names []string) error {
 	var errs []error
-	for _, o := range outputs {
-		if isInternalDisplay(o) && !o.Enabled {
-			if err := SwaymsgCmd("output", o.Name, "enable").Run(); err != nil {
-				errs = append(errs, fmt.Errorf("enable %s: %w", o.Name, err))
-			}
+	for _, name := range names {
+		if err := SwaymsgCmd("output", name, "enable").Run(); err != nil {
+			errs = append(errs, fmt.Errorf("enable %s: %w", name, err))
 		}
 	}
 	return errors.Join(errs...)

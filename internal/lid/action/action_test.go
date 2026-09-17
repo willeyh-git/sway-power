@@ -55,7 +55,7 @@ func TestActionExecute(t *testing.T) {
 	// and returns an error for invalid actions.
 	t.Run("invalid action returns error", func(t *testing.T) {
 		a := Action("invalid")
-		if err := a.Execute(); err == nil {
+		if _, err := a.Execute(); err == nil {
 			t.Fatal("expected error for invalid action")
 		}
 	})

@@ -389,25 +389,90 @@ func TestHandlerLidOpenRestoresOnce(t *testing.T) {
 
 func TestHandlerLidOpenRestoreRetriedOnFailure(t *testing.T) {
 	_, mock := setupMockActions(t)
-	// No stateful stub: the default no-op SwaymsgCmd stub makes
-	// get_outputs fail, so the restore cannot succeed.
+
+	// Stateful stub: the close disables eDP-1, but `output eDP-1 enable`
+	// fails until enableOK, so the first two opens cannot restore and
+	// must keep ownership for the next open.
+	edpDisabled := false
+	enableOK := false
+	var enables int
+	action.SwaymsgCmd = func(args ...string) *exec.Cmd {
+		mock.exec("swaymsg", args...)
+		if len(args) == 3 && args[0] == "-t" && args[1] == "json" && args[2] == "get_outputs" {
+			enabled := "false"
+			if !edpDisabled {
+				enabled = "true"
+			}
+			json := fmt.Sprintf(
+				`[{"name":"eDP-1","interface":"eDP-1","enabled":%s},`+
+					`{"name":"HDMI-A-1","interface":"HDMI-A-1","enabled":true}]`, enabled)
+			return exec.Command("echo", json)
+		}
+		if len(args) == 3 && args[0] == "output" && args[1] == "eDP-1" {
+			if args[2] == "disable" {
+				edpDisabled = true
+				return exec.Command("true")
+			}
+			enables++
+			if enableOK {
+				edpDisabled = false
+				return exec.Command("true")
+			}
+			return exec.Command("false")
+		}
+		return exec.Command("true")
+	}
 
 	h := NewHandler(action.ActionNothing, &testLogger{t})
 	h.HandleLidClosed()
 
 	h.HandleLidOpen()
 	h.HandleLidOpen()
-
-	// The restore must be retried on every lid-open until it succeeds:
-	// one get_outputs per close/open attempt.
-	got := 0
-	for _, c := range mock.getCalls() {
-		if len(c.args) == 3 && c.args[0] == "-t" && c.args[1] == "json" && c.args[2] == "get_outputs" {
-			got++
-		}
+	if enables != 2 {
+		t.Fatalf("expected 2 failed enable attempts, got %d (calls: %v)", enables, mock.getCalls())
 	}
-	if got != 3 {
-		t.Errorf("expected 3 get_outputs attempts (1 close + 2 opens), got %d (calls: %v)", got, mock.getCalls())
+
+	enableOK = true
+	h.HandleLidOpen()
+	if enables != 3 {
+		t.Errorf("expected retry after failure, got %d enable attempts", enables)
+	}
+
+	// Ownership was handed back after the successful restore: a further
+	// open must not touch the displays.
+	h.HandleLidOpen()
+	if enables != 3 {
+		t.Errorf("expected no further enable after successful restore, got %d attempts", enables)
+	}
+}
+
+func TestHandlerLidCloseNoOwnershipWhenNothingDisabled(t *testing.T) {
+	_, mock := setupMockActions(t)
+
+	// Stateful stub: eDP-1 is already disabled (by the user) and no
+	// external monitor is enabled, so "nothing" has to disable nothing.
+	action.SwaymsgCmd = func(args ...string) *exec.Cmd {
+		mock.exec("swaymsg", args...)
+		if len(args) == 3 && args[0] == "-t" && args[1] == "json" && args[2] == "get_outputs" {
+			json := `[{"name":"eDP-1","interface":"eDP-1","enabled":false},` +
+				`{"name":"HDMI-A-1","interface":"HDMI-A-1","enabled":false}]`
+			return exec.Command("echo", json)
+		}
+		return exec.Command("true")
+	}
+
+	h := NewHandler(action.ActionNothing, &testLogger{t})
+	h.HandleLidClosed()
+
+	// Nothing was disabled by us, so no ownership was claimed.
+	if mock.called("swaymsg", "output", "eDP-1", "disable") {
+		t.Fatalf("expected no disable, got calls: %v", mock.getCalls())
+	}
+
+	// Lid open must not re-enable the user-disabled eDP-1.
+	h.HandleLidOpen()
+	if mock.called("swaymsg", "output", "eDP-1", "enable") {
+		t.Errorf("must not re-enable user-disabled output, got calls: %v", mock.getCalls())
 	}
 }
 

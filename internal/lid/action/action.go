@@ -31,24 +31,28 @@ func (a Action) Validate() error {
 // signals, so "lock" runs swaylock manually instead of relying on logind.
 // "nothing" does not suspend; instead the internal display is turned off
 // when an external monitor is connected so the machine stays usable.
-func (a Action) Execute() error {
+//
+// It also returns the names of the outputs it disabled; the caller is
+// responsible for restoring them on lid open. Only "nothing" disables
+// anything, all other actions return no names.
+func (a Action) Execute() ([]string, error) {
 	switch a {
 	case ActionLock:
-		return execSwaylock()
+		return nil, execSwaylock()
 	case ActionSleep:
-		return execSystemctl("suspend")
+		return nil, execSystemctl("suspend")
 	case ActionNothing:
 		return hideInternalDisplay()
 	default:
-		return fmt.Errorf("unknown action: %s", a)
+		return nil, fmt.Errorf("unknown action: %s", a)
 	}
 }
 
 // OnOpen runs the action for a lid open event.
 //
 // Re-enabling the internal display is deliberately NOT done here: the daemon
-// handler tracks whether sway-power disabled it (internalDisplayDisabledByUs)
-// and restores it on lid open regardless of the current action. That keeps
+// handler tracks which outputs sway-power disabled (Handler.disabledByUs)
+// and restores them on lid open regardless of the current action. That keeps
 // display ownership independent of the action — e.g. if the user switches
 // nothing → lock/sleep while the lid is closed, the panel is still restored
 // on open.
