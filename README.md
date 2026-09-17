@@ -230,3 +230,7 @@ go vet ./...
 
 The inhibitor's retry/recovery behavior is the core correctness property
 of the lid architecture and is what the tests focus on.
+
+Before refactoring the daemon, read [docs/invariants.md](docs/invariants.md):
+the properties the code must never violate (inhibitor, display ownership,
+action swap, monitor delivery, preference loading).
