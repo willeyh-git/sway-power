@@ -32,8 +32,10 @@ var unitTemplate string
 //   - unit changed   -> rewrite, daemon-reload, import-environment,
 //     enable, restart (upgrade path: the running daemon picks up the
 //     new ExecStart path).
-//   - unit unchanged -> nothing. Normal GUI startup never manages unit
-//     lifecycle: a daemon the user deliberately stopped stays stopped.
+//   - unit unchanged -> no write. If the service is running it is
+//     restarted so it serves the binary at that ExecStart path — this
+//     is the in-place upgrade (same path, new binary). A daemon the
+//     user deliberately stopped stays stopped.
 //
 // The whole write/reload/enable sequence runs under an exclusive flock
 // so two concurrent first GUI launches cannot interleave it.
@@ -121,9 +123,13 @@ func doBootstrap(execPath string) error {
 	}
 
 	if exists && installed == unitContent {
-		// Unit is up to date. Normal startup does not manage unit
-		// lifecycle here (plan phase 6): a daemon the user
-		// deliberately stopped stays stopped.
+		// Unit is up to date. An explicit install means "the current
+		// binary is what should run": if the daemon is running, restart
+		// it so an in-place binary upgrade takes effect. A daemon the
+		// user deliberately stopped stays stopped.
+		if isActive(unitName) {
+			return systemctl("restart", unitName)
+		}
 		return nil
 	}
 
@@ -196,7 +202,11 @@ func releaseLock(f *os.File) {
 // importEnvironment runs systemctl --user import-environment to
 // propagate WAYLAND_DISPLAY and other session variables to the user
 // manager.
-func importEnvironment() error {
+//
+// Declared as a variable (as systemctl and isActive are) so tests can
+// replace the systemctl entry points without touching a real user
+// manager.
+var importEnvironment = func() error {
 	env := os.Environ()
 	var vars []string
 	for _, e := range env {
@@ -215,8 +225,19 @@ func importEnvironment() error {
 	return cmd.Run()
 }
 
+// isActive reports whether the named unit is currently active.
+// Unknown or errored unit state counts as not active: restart on
+// install is a nice-to-have and must never fail the install.
+var isActive = func(unit string) bool {
+	out, err := exec.Command("systemctl", "--user", "is-active", unit).Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "active"
+}
+
 // systemctl runs systemctl --user with the given arguments.
-func systemctl(args ...string) error {
+var systemctl = func(args ...string) error {
 	fullArgs := append([]string{"--user"}, args...)
 	cmd := exec.Command("systemctl", fullArgs...)
 	out, err := cmd.CombinedOutput()
