@@ -145,6 +145,32 @@ to the `lid_switch` attribute, which no hardware has (the attribute itself
 carries the 0/1 state) — that probe was dead. The monitor now reads the
 attribute directly.
 
+## Install
+
+### Prebuilt binary
+
+Releases ship a single `linux/amd64` binary. It is not fully static — it
+links the usual desktop libraries (GL/X11/Wayland), which a sway
+installation already has.
+
+```sh
+v=v0.1.1   # or the latest release tag
+curl -LO https://github.com/willeyh-git/sway-power/releases/download/$v/sway-power_linux_amd64
+curl -LO https://github.com/willeyh-git/sway-power/releases/download/$v/SHA256SUMS.txt
+sha256sum -c SHA256SUMS.txt
+install -D sway-power_linux_amd64 /usr/local/bin/sway-power
+sway-power install   # writes + starts the lid handler service
+```
+
+`/usr/local/bin` is the stable path: the systemd unit keeps pointing at
+it, so an upgrade is `install -D` with the new binary plus
+`sway-power install` again — the running daemon restarts and picks up
+the new binary. `sway-power --version` tells you what is installed.
+
+### From source
+
+See [Build](#build): `make build`, then the same `sway-power install`.
+
 ## Build
 
 ```sh
