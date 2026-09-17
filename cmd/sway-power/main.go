@@ -17,12 +17,19 @@ import (
 )
 
 var (
-	debug bool
+	debug   bool
+	version = "dev" // set at build time: -ldflags "-X main.version=$(git describe --tags)"
 )
 
 func main() {
 	flag.BoolVar(&debug, "debug", false, "print D-Bus activity to stderr")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("sway-power", version)
+		return
+	}
 
 	// Explicit subcommands. Anything else (no args) is the GUI.
 	args := flag.Args()
@@ -58,7 +65,7 @@ func main() {
 }
 
 func runDaemon() {
-	d, err := daemon.New(debug)
+	d, err := daemon.New(debug, version)
 	if err != nil {
 		log.Fatalf("daemon: %v", err)
 	}
