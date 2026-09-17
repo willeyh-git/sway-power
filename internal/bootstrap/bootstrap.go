@@ -21,7 +21,9 @@ const unitName = "sway-power.service"
 //go:embed sway-power.service
 var unitTemplate string
 
-// Bootstrap installs the sway-power systemd user service. execPath must
+// Bootstrap installs the sway-power systemd user service. It is an
+// explicit user action (GUI link or `sway-power install`), never a side
+// effect of a GUI launch. execPath must
 // be the absolute path to the running sway-power binary; it goes into
 // the unit's ExecStart line.
 //
@@ -44,14 +46,67 @@ func Bootstrap(execPath string) error {
 	return doBootstrap(execPath)
 }
 
-// doBootstrap is Bootstrap with the lock already held.
-func doBootstrap(execPath string) error {
+// UnitName returns the name of the managed user unit.
+func UnitName() string {
+	return unitName
+}
+
+// UnitPath returns the path of the managed user unit.
+func UnitPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return fmt.Errorf("bootstrap: user config dir: %w", err)
+		return "", fmt.Errorf("bootstrap: user config dir: %w", err)
 	}
-	unitDir := filepath.Join(configDir, "systemd", "user")
-	unitPath := filepath.Join(unitDir, unitName)
+	return filepath.Join(configDir, "systemd", "user", unitName), nil
+}
+
+// IsInstalled reports whether the managed user unit file is present.
+func IsInstalled() bool {
+	p, err := UnitPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(p)
+	return err == nil
+}
+
+// Uninstall removes the managed user unit: stop + disable (best effort),
+// delete the unit file, daemon-reload. Idempotent: a missing unit is not
+// an error.
+func Uninstall() error {
+	lockFile, err := acquireLock()
+	if err != nil {
+		return err
+	}
+	defer releaseLock(lockFile)
+
+	unitPath, err := UnitPath()
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(unitPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil // already uninstalled
+		}
+		return fmt.Errorf("bootstrap: stat unit: %w", err)
+	}
+
+	// Best effort: the unit may be inactive or unknown to the user manager.
+	_ = systemctl("disable", "--now", unitName)
+
+	if err := os.Remove(unitPath); err != nil {
+		return fmt.Errorf("bootstrap: remove unit: %w", err)
+	}
+	return systemctl("daemon-reload")
+}
+
+// doBootstrap is Bootstrap with the lock already held.
+func doBootstrap(execPath string) error {
+	unitPath, err := UnitPath()
+	if err != nil {
+		return err
+	}
+	unitDir := filepath.Dir(unitPath)
 
 	unitContent := strings.Replace(unitTemplate, "__EXEC_PATH__", execPath, 1)
 

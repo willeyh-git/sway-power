@@ -50,12 +50,12 @@ func Show(app fyne.App, cfg config.Config, debug bool) error {
 	// Power profile buttons
 	powerMgr := newPowerProfileManager(debug, pal, status)
 
-	// Lid close buttons
+	// Lid settings section (install/uninstall links + lid close actions)
 	lidMgr := newLidCloseButtons(debug, pal, status)
 
 	// Layout owns all spacing
 	layout := NewLayout(batContent, status.Object(), widget.NewSeparator(),
-		powerMgr.labelText(), powerMgr.buttonBar(), lidMgr.labelText(), lidMgr.buttonBar())
+		powerMgr.labelText(), powerMgr.buttonBar(), lidMgr.labelText(), lidMgr.lidSection())
 
 	// Set content with background
 	bg := canvas.NewRectangle(pal.Background)
