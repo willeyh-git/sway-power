@@ -23,10 +23,10 @@ type Layout struct {
 	powerLabel fyne.CanvasObject
 	powerBar   *fyne.Container
 	lidLabel   fyne.CanvasObject
-	lidBar     *fyne.Container
+	lidSection *fyne.Container
 }
 
-func NewLayout(batContent *fyne.Container, status fyne.CanvasObject, separator fyne.CanvasObject, powerLabel fyne.CanvasObject, powerBar *fyne.Container, lidLabel fyne.CanvasObject, lidBar *fyne.Container) *Layout {
+func NewLayout(batContent *fyne.Container, status fyne.CanvasObject, separator fyne.CanvasObject, powerLabel fyne.CanvasObject, powerBar *fyne.Container, lidLabel fyne.CanvasObject, lidSection *fyne.Container) *Layout {
 	return &Layout{
 		batContent: batContent,
 		status:     status,
@@ -34,7 +34,7 @@ func NewLayout(batContent *fyne.Container, status fyne.CanvasObject, separator f
 		powerLabel: powerLabel,
 		powerBar:   powerBar,
 		lidLabel:   lidLabel,
-		lidBar:     lidBar,
+		lidSection: lidSection,
 	}
 }
 
@@ -74,7 +74,7 @@ func (l *Layout) Container() *fyne.Container {
 		l.powerBar,
 		l.lidLabel,
 		spacer2,
-		l.lidBar,
+		l.lidSection,
 	)
 
 	// Wrap in padded container

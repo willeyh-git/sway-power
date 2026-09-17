@@ -24,30 +24,29 @@ func main() {
 	flag.BoolVar(&debug, "debug", false, "print D-Bus activity to stderr")
 	flag.Parse()
 
+	// Explicit subcommands. Anything else (no args) is the GUI.
 	args := flag.Args()
-	if len(args) > 0 && args[0] == "daemon" {
-		runDaemon()
+	if len(args) > 0 {
+		switch args[0] {
+		case "daemon":
+			runDaemon()
+		case "install":
+			runInstall()
+		case "uninstall":
+			runUninstall()
+		default:
+			fmt.Fprintf(os.Stderr, "usage: sway-power [--debug] [daemon|install|uninstall]\n")
+			os.Exit(2)
+		}
 		return
 	}
 
-	// GUI mode: bootstrap daemon, then show UI.
+	// GUI mode. Installation of the lid service is NOT done here: the
+	// GUI shows an explicit "Install the lid service" action in the Lid
+	// Settings section instead.
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	// Bootstrap the systemd user service. Only the first launch does
-	// real work; afterwards the unit is up to date and this is a no-op.
-	binaryPath, err := os.Executable()
-	if err == nil {
-		// Resolve to absolute path.
-		binaryPath, err = filepath.Abs(binaryPath)
-		if err == nil {
-			if err := bootstrap.Bootstrap(binaryPath); err != nil {
-				// Non-fatal; the GUI can still run.
-				fmt.Fprintf(os.Stderr, "sway-power: bootstrap warning: %v\n", err)
-			}
-		}
 	}
 
 	a := app.NewWithID("com.willeyh.sway-power")
@@ -66,4 +65,28 @@ func runDaemon() {
 	// Shutdown is owned here, not in d.Run(): it happens exactly once.
 	defer d.Shutdown()
 	d.Run()
+}
+
+// runInstall explicitly installs (and starts) the sway-power user service.
+func runInstall() {
+	binaryPath, err := os.Executable()
+	if err != nil {
+		log.Fatalf("install: %v", err)
+	}
+	binaryPath, err = filepath.Abs(binaryPath)
+	if err != nil {
+		log.Fatalf("install: %v", err)
+	}
+	if err := bootstrap.Bootstrap(binaryPath); err != nil {
+		log.Fatalf("install: %v", err)
+	}
+	fmt.Println("sway-power: installed", bootstrap.UnitName())
+}
+
+// runUninstall explicitly removes the sway-power user service.
+func runUninstall() {
+	if err := bootstrap.Uninstall(); err != nil {
+		log.Fatalf("uninstall: %v", err)
+	}
+	fmt.Println("sway-power: uninstalled", bootstrap.UnitName())
 }
