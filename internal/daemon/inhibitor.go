@@ -214,7 +214,7 @@ func (i *Inhibitor) watchWhileAcquired() bool {
 // logind is a system service: org.freedesktop.login1 lives on the
 // system bus, not the session bus. An unprivileged Inhibit() goes
 // through polkit (org.freedesktop.login1.inhibit-block-handle-lid-
-// switch) — see "Verify early" in docs/lid-daemon-plan.md.
+// switch).
 //
 // Called only from the run loop.
 func (i *Inhibitor) acquireOnce() error {
