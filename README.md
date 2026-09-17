@@ -217,8 +217,6 @@ internal/
   preferences/         preferences.json persistence (atomic writes)
   config/              config.yaml loading + validation
   logger/              stderr logger (debug-gated)
-docs/
-  lid-daemon-plan.md   the design plan for the daemon architecture
 ```
 
 ## Development
@@ -230,6 +228,5 @@ go test ./...          # unit tests — fully mocked, no real commands run;
 go vet ./...
 ```
 
-The lid architecture is specified in `docs/lid-daemon-plan.md`; the
-inhibitor's retry/recovery behavior is the core correctness property and is
-what the tests and the integration checklist there focus on.
+The inhibitor's retry/recovery behavior is the core correctness property
+of the lid architecture and is what the tests focus on.

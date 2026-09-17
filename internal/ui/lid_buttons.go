@@ -204,7 +204,7 @@ func (mgr *lidCloseButtons) lidSection() *fyne.Container {
 // lidHandlerStatus returns the v1-min status line: whether the
 // sway-power daemon unit is active, per `systemctl --user is-active`.
 // Note: is-active proves the process is running, not that the inhibit
-// lock was acquired (see "Daemon readiness" in docs/lid-daemon-plan.md).
+// lock was acquired.
 func lidHandlerStatus() string {
 	out, err := exec.Command("systemctl", "--user", "is-active", "sway-power.service").Output()
 	if err != nil {
