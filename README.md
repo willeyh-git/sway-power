@@ -159,9 +159,9 @@ releases.)
 The GUI is built with [Fyne](https://fyne.io/), so the desktop build needs a
 C compiler and the X11/Wayland development libraries. Typical packages:
 
-- Fedora: `sudo dnf install gcc make wayland-devel`
-- Arch: `sudo pacman -S base-devel wayland`
-- Debian/Ubuntu: `sudo apt install gcc libgl1-mesa-dev xorg-dev libwayland-dev`
+- Fedora: `sudo dnf install gcc make wayland-devel libxkbcommon-devel`
+- Arch: `sudo pacman -S base-devel wayland libxkbcommon`
+- Debian/Ubuntu: `sudo apt install gcc libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev`
 
 ## Usage
 
