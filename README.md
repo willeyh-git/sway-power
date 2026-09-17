@@ -43,8 +43,9 @@ The daemon owns four components:
   call is denied, the inhibitor retries every 5 s and never gives up while
   the daemon lives.
 - **Monitor** — consumes the lid switch's evdev input device
-  (`/dev/input/eventN`, discovered via `/sys/class/input` as the class entry
-  named `Lid Switch`) for zero-latency transitions, and reads the state
+  (`/dev/input/eventN`, discovered via the `/sys/class/input/inputN`
+  class entry whose `name` is `Lid Switch`) for zero-latency transitions,
+  and reads the state
   file (`/proc/acpi/button/lid/*/state` or
   `/sys/class/input/*/device/lid_switch`) once for the initial state and
   every 500 ms as a backstop, so a missed event can never leave the daemon
@@ -89,7 +90,7 @@ The monitor discovers the lid switch at startup and logs what it found:
 
 | Source | Location | Role | Verified |
 |---|---|---|---|
-| evdev input device | `/dev/input/eventN` whose `/sys/class/input` entry is named `Lid Switch` | primary: real input event stream (`SW_LID`, 1 = open, 0 = closed) | yes — `event0` on the verified machine (`capabilities/sw` exposes `SW_LID`) |
+| evdev input device | `/dev/input/eventN`, where `inputN` is the `/sys/class/input` class entry whose `name` is `Lid Switch` (same index `N`) | primary: real input event stream (`SW_LID`, 1 = open, 0 = closed) | yes — `input0` on the verified machine maps to `/dev/input/event0` (`capabilities/sw` exposes `SW_LID`) |
 | ACPI proc interface | `/proc/acpi/button/lid/*/state` (`open` / `closed`) | initial state + 500 ms polling backstop | yes — `LID0/state` present, format `state:      open` |
 | sysfs attribute | `/sys/class/input/*/device/lid_switch` (`1` / `0`) | fallback state file for hardware that exposes the attribute via the input class | not observed on the verified machine (its attribute lives under the platform device, not the input class); probed in order |
 

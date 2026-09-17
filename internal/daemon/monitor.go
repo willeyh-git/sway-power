@@ -42,8 +42,9 @@ const inputEventSize = 16 // sizeof(struct input_event)
 //
 // It has two sources of truth:
 //
-//   - the evdev input device (/dev/input/eventN discovered via
-//     /sys/class/input, name "Lid Switch"), consumed as a real input event
+//   - the evdev input device (/dev/input/eventN, discovered via the
+//     /sys/class/input/inputN class entry whose name is "Lid Switch"),
+//     consumed as a real input event
 //     stream — zero-latency transitions;
 //   - a state file (/proc/acpi/button/lid/*/state or the sysfs
 //     lid_switch attribute), read once for the initial state and then
@@ -160,13 +161,23 @@ func (m *Monitor) run() {
 // Besides providing the initial state, it is the backstop for the evdev
 // reader: if a transition is missed, the next poll corrects it.
 func (m *Monitor) pollLoop(states chan<- LidState) {
+	var lastErr string
 	read := func() {
 		s, err := readLidStateFromFile(m.stateFile, m.log, m.debug)
 		if err != nil {
-			m.log.Printf("lid: error reading state: %v", err)
+			// Log each distinct error once; the file may stay unreadable
+			// for the daemon's lifetime and must not flood the log every 500 ms.
+			if msg := err.Error(); msg != lastErr {
+				m.log.Printf("lid: error reading state: %v", err)
+				lastErr = msg
+			}
 			return
 		}
-		states <- s
+		lastErr = ""
+		select {
+		case states <- s:
+		case <-m.stopCh:
+		}
 	}
 	read()
 
@@ -189,8 +200,10 @@ func (m *Monitor) pollLoop(states chan<- LidState) {
 func (m *Monitor) readEvdev(f *os.File, states chan<- LidState) {
 	buf := make([]byte, inputEventSize)
 	for {
-		// A successful read on an evdev fd yields exactly one full
-		// 16-byte input_event.
+		// The kernel returns complete input_events up to len(buf), so with
+		// a one-event buffer each successful read yields exactly one event.
+		// Do not grow buf without consuming the whole read in
+		// inputEventSize-sized chunks.
 		if _, err := f.Read(buf); err != nil {
 			m.log.Printf("lid: evdev read error: %v", err)
 			return
@@ -204,10 +217,15 @@ func (m *Monitor) readEvdev(f *os.File, states chan<- LidState) {
 		if typ != evSwitch || code != swLid {
 			continue
 		}
+		var s LidState
 		if val == 1 {
-			states <- LidOpen
+			s = LidOpen
 		} else {
-			states <- LidClosed
+			s = LidClosed
+		}
+		select {
+		case states <- s:
+		case <-m.stopCh:
 		}
 	}
 }
@@ -225,26 +243,29 @@ func (m *Monitor) Stop() {
 
 // findLidSources locates the lid switch on disk.
 //
-//   - eventDevice: /dev/input/eventN whose /sys/class/input class entry
-//     is named "Lid Switch". Consuming its event stream is the primary,
-//     zero-latency path.
+//   - eventDevice: /dev/input/eventN, where inputN is the
+//     /sys/class/input class entry whose name is "Lid Switch". Consuming
+//     its event stream is the primary, zero-latency path.
 //   - stateFile: a file exposing the current state, used for the initial
 //     state and the polling backstop. Checked in order:
 //     /proc/acpi/button/lid/*/state ("open"/"closed"), then
 //     /sys/class/input/*/device/lid_switch (0/1).
 func findLidSources(log Logger, sysRoot, devRoot string) (eventDevice, stateFile string) {
-	entries, _ := filepath.Glob(filepath.Join(sysRoot, "sys/class/input/*"))
+	entries, _ := filepath.Glob(filepath.Join(sysRoot, "sys/class/input/input*"))
 	for _, entry := range entries {
+		base := filepath.Base(entry)
+		suffix := strings.TrimPrefix(base, "input")
+		if suffix == base || suffix == "" {
+			continue
+		}
 		name, err := os.ReadFile(filepath.Join(entry, "name"))
 		if err != nil || !strings.Contains(strings.ToLower(string(name)), "lid switch") {
 			continue
 		}
-		base := filepath.Base(entry)
-		if !strings.HasPrefix(base, "event") {
-			continue
-		}
-		eventDevice = filepath.Join(devRoot, "input", base)
-		log.Printf("lid: evdev device %s", eventDevice)
+		// The class entry is inputN; the event device node is
+		// /dev/input/eventN (event minor N, same index).
+		eventDevice = filepath.Join(devRoot, "input", "event"+suffix)
+		log.Printf("lid: evdev device %s (class entry %s)", eventDevice, entry)
 		break
 	}
 

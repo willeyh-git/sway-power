@@ -74,6 +74,10 @@ func writeLidEvent(t *testing.T, w *os.File, value uint32) {
 // setupLidTree builds a fake root in a temp dir containing <root>/sys and
 // <root>/proc mirroring the real layout (plus <root>/dev/input), and
 // returns (root, devRoot).
+//
+// The sysfs layout mirrors real hardware: /sys/class/input/inputN is the
+// class entry that carries the `name` attribute ("Lid Switch"); the
+// event device node is /dev/input/eventN with the same index N.
 func setupLidTree(t *testing.T, withLidEvdev, withProc, withSysfsAttr bool) (sysRoot, devRoot string) {
 	t.Helper()
 	root := t.TempDir()
@@ -81,10 +85,10 @@ func setupLidTree(t *testing.T, withLidEvdev, withProc, withSysfsAttr bool) (sys
 	devRoot = filepath.Join(root, "dev")
 
 	if withLidEvdev {
-		if err := os.MkdirAll(filepath.Join(sysRoot, "sys/class/input/event0"), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(sysRoot, "sys/class/input/input0"), 0755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(sysRoot, "sys/class/input/event0/name"), []byte("Lid Switch\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(sysRoot, "sys/class/input/input0/name"), []byte("Lid Switch\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.MkdirAll(filepath.Join(devRoot, "input"), 0755); err != nil {
@@ -103,7 +107,7 @@ func setupLidTree(t *testing.T, withLidEvdev, withProc, withSysfsAttr bool) (sys
 	}
 
 	if withSysfsAttr {
-		dir := filepath.Join(sysRoot, "sys/class/input/event0/device")
+		dir := filepath.Join(sysRoot, "sys/class/input/input0/device")
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -113,6 +117,26 @@ func setupLidTree(t *testing.T, withLidEvdev, withProc, withSysfsAttr bool) (sys
 	}
 
 	return
+}
+
+func TestFindLidSourcesEvdevIndexMapping(t *testing.T) {
+	// The lid switch is not always input0: class entry inputN maps to the
+	// event device node /dev/input/eventN, same index.
+	sysRoot, devRoot := setupLidTree(t, false, false, false)
+	if err := os.MkdirAll(filepath.Join(sysRoot, "sys/class/input/input5"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sysRoot, "sys/class/input/input5/name"), []byte("Lid Switch\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	evdev, state := findLidSources(&testLogger{t}, sysRoot, devRoot)
+	if evdev != filepath.Join(devRoot, "input/event5") {
+		t.Errorf("evdev = %q, want %q", evdev, filepath.Join(devRoot, "input/event5"))
+	}
+	if state != "" {
+		t.Errorf("state = %q, want none", state)
+	}
 }
 
 func TestFindLidSourcesAll(t *testing.T) {
@@ -137,7 +161,7 @@ func TestFindLidSourcesSysfsAttrFallback(t *testing.T) {
 	if evdev != filepath.Join(devRoot, "input/event0") {
 		t.Errorf("evdev = %q", evdev)
 	}
-	wantState := filepath.Join(sysRoot, "sys/class/input/event0/device/lid_switch")
+	wantState := filepath.Join(sysRoot, "sys/class/input/input0/device/lid_switch")
 	if state != wantState {
 		t.Errorf("state file = %q, want %q", state, wantState)
 	}
@@ -146,10 +170,10 @@ func TestFindLidSourcesSysfsAttrFallback(t *testing.T) {
 func TestFindLidSourcesIgnoresNonLidDevices(t *testing.T) {
 	sysRoot, devRoot := setupLidTree(t, false, false, false)
 	// A keyboard with a plain state file elsewhere must not be picked up.
-	if err := os.MkdirAll(filepath.Join(sysRoot, "sys/class/input/event1"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(sysRoot, "sys/class/input/input1"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(sysRoot, "sys/class/input/event1/name"), []byte("AT Translated Set 2 keyboard\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(sysRoot, "sys/class/input/input1/name"), []byte("AT Translated Set 2 keyboard\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -276,7 +300,8 @@ func TestMonitorPollFallback(t *testing.T) {
 
 // TestMonitorRealLidSource is an integration test against the real
 // machine: discovery against the actual /sys and /proc, plus initial
-// state from the real lid state file.
+// state from the real lid state file. It fails — rather than skips — when
+// this machine has a lid switch but discovery misses it.
 func TestMonitorRealLidSource(t *testing.T) {
 	if testing.Short() {
 		t.Skip("short")
@@ -286,6 +311,25 @@ func TestMonitorRealLidSource(t *testing.T) {
 		t.Skip("this machine has no discoverable lid switch")
 	}
 	t.Logf("found evdev=%q state=%q", evdev, state)
+
+	// A lid switch named in sysfs must be discovered as an evdev device.
+	lidByName := false
+	for _, entry := range globAbs("/sys/class/input/input*") {
+		name, err := os.ReadFile(filepath.Join(entry, "name"))
+		if err == nil && strings.Contains(strings.ToLower(string(name)), "lid switch") {
+			lidByName = true
+		}
+	}
+	if lidByName && evdev == "" {
+		t.Fatalf("a \"Lid Switch\" class entry exists in /sys/class/input but no evdev device was discovered")
+	}
+
+	// A state source present on disk must be discovered.
+	stateSources := len(globAbs("/proc/acpi/button/lid/*/state")) + len(globAbs("/sys/class/input/*/device/lid_switch"))
+	if stateSources > 0 && state == "" {
+		t.Fatalf("a lid state source exists on disk but no state file was discovered")
+	}
+
 	if state != "" {
 		if _, err := os.Stat(state); err != nil {
 			t.Errorf("state file %s does not exist: %v", state, err)
@@ -294,9 +338,20 @@ func TestMonitorRealLidSource(t *testing.T) {
 	if evdev != "" {
 		f, err := os.Open(evdev)
 		if err != nil {
-			t.Errorf("cannot open evdev device %s: %v", evdev, err)
+			if os.IsPermission(err) {
+				// Discovery is correct; this user just lacks input-group
+				// access to /dev/input. Not a failure of the monitor.
+				t.Logf("evdev device %s found but not openable by this user: %v", evdev, err)
+			} else {
+				t.Errorf("cannot open evdev device %s: %v", evdev, err)
+			}
 		} else {
 			f.Close()
 		}
 	}
+}
+
+func globAbs(pattern string) []string {
+	matches, _ := filepath.Glob(pattern)
+	return matches
 }
