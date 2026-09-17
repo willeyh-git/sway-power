@@ -26,6 +26,11 @@ import (
 //
 // Everything in between — the inhibitor state machine, lid state
 // delivery, display ownership, prefs parsing — is the real code path.
+//
+// The handler is constructed with the production default action and the
+// watcher's first poll swaps it from the temp preferences.json, i.e. the
+// same initial-load path NewPreferencesWatcher runs (only the config
+// path is substituted).
 
 // swayFake is a stateful fake of the sway compositor. get_outputs
 // reports the internal eDP-1 (reflecting its current enabled state) and,
@@ -119,8 +124,8 @@ type integrationOpts struct {
 	// lidClosedAtStart makes the state file report "closed" before the
 	// monitor starts, so the initial state callback is a lid-close.
 	lidClosedAtStart bool
-	// initialAction is set on the handler and written to the temp
-	// preferences.json.
+	// initialAction is written to the temp preferences.json; the
+	// watcher's initial load swaps it onto the handler.
 	initialAction action.Action
 	// edpEnabled / hdmiPresent are the initial sway display states.
 	edpEnabled  bool
@@ -139,11 +144,40 @@ func startIntegrationDaemon(t *testing.T, opts integrationOpts) *integrationDaem
 	}
 	d.fake = newSwayFake(t, mock, opts.edpEnabled, opts.hdmiPresent)
 
-	// Handler (same default-validation path as New).
-	d.handler = NewHandler(opts.initialAction, log)
-
 	// Inhibitor on the mock bus (fast retry).
 	d.inhibitor = newTestInhibitor(t, d.bus)
+
+	// Handler with the production default action (same constructor path
+	// as New); the watcher's initial load below swaps it to
+	// initialAction, like NewPreferencesWatcher does.
+	d.handler = NewHandler(action.ActionLock, log)
+
+	// Preferences watcher on a temp preferences.json (created before the
+	// monitor, matching Daemon.New's order).
+	d.prefsPath = filepath.Join(t.TempDir(), "preferences.json")
+	if err := os.WriteFile(d.prefsPath, []byte(fmt.Sprintf(`{"lid_close": "%s"}`, opts.initialAction)), 0644); err != nil {
+		t.Fatalf("write prefs: %v", err)
+	}
+	d.pw = &PreferencesWatcher{
+		prefsPath: d.prefsPath,
+		handler:   d.handler,
+		log:       log,
+		stopCh:    make(chan struct{}),
+		done:      make(chan struct{}),
+	}
+	go d.pw.watch()
+	t.Cleanup(d.pw.Stop)
+
+	// Block until the watcher's first poll loaded the file and swapped
+	// the action, so the monitor (and any startup lid callback) already
+	// sees the configured action.
+	deadline := time.Now().Add(3 * time.Second)
+	for d.handler.GetAction() != opts.initialAction {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for initial prefs load (handler has %q)", d.handler.GetAction())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 
 	// Monitor on the fake lid tree: state file only, so the real 500 ms
 	// poll path drives every transition.
@@ -168,21 +202,6 @@ func startIntegrationDaemon(t *testing.T, opts integrationOpts) *integrationDaem
 		t.Fatal("expected monitor")
 	}
 	t.Cleanup(func() { d.monitor.Stop() })
-
-	// Preferences watcher on a temp preferences.json.
-	d.prefsPath = filepath.Join(t.TempDir(), "preferences.json")
-	if err := os.WriteFile(d.prefsPath, []byte(fmt.Sprintf(`{"lid_close": "%s"}`, opts.initialAction)), 0644); err != nil {
-		t.Fatalf("write prefs: %v", err)
-	}
-	d.pw = &PreferencesWatcher{
-		prefsPath: d.prefsPath,
-		handler:   d.handler,
-		log:       log,
-		stopCh:    make(chan struct{}),
-		done:      make(chan struct{}),
-	}
-	go d.pw.watch()
-	t.Cleanup(d.pw.Stop)
 
 	return d
 }
@@ -242,28 +261,6 @@ func (d *integrationDaemon) setAction(t *testing.T, a action.Action) {
 	}
 }
 
-// countCalls counts recorded mockExec calls with exactly the given
-// name/args.
-func countCalls(m *mockExec, name string, args ...string) int {
-	n := 0
-	for _, c := range m.getCalls() {
-		if c.name != name || len(c.args) != len(args) {
-			continue
-		}
-		same := true
-		for i := range args {
-			if c.args[i] != args[i] {
-				same = false
-				break
-			}
-		}
-		if same {
-			n++
-		}
-	}
-	return n
-}
-
 // TestIntegrationLogindDisappearsAndReappears is the failure mode "logind
 // disappearing/reappearing while daemon is alive": while holding the
 // inhibit lock, logind goes away (bus connection survives) and the
@@ -295,11 +292,11 @@ func TestIntegrationLogindDisappearsAndReappears(t *testing.T) {
 	// The daemon must stay fully functional while logind is gone: a
 	// close/open still round-trips the display.
 	d.closeLid(t)
-	if got := countCalls(d.mock, "swaymsg", "output", "eDP-1", "disable"); got != 2 {
+	if got := d.mock.counted("swaymsg", "output", "eDP-1", "disable"); got != 2 {
 		t.Errorf("expected 2nd disable while logind is gone, got %d (calls: %v)", got, d.mock.getCalls())
 	}
 	d.openLid(t)
-	if got := countCalls(d.mock, "swaymsg", "output", "eDP-1", "enable"); got != 2 {
+	if got := d.mock.counted("swaymsg", "output", "eDP-1", "enable"); got != 2 {
 		t.Errorf("expected 2nd enable while logind is gone, got %d (calls: %v)", got, d.mock.getCalls())
 	}
 	if !d.fake.edpEnabled() {
@@ -320,11 +317,11 @@ func TestIntegrationLogindDisappearsAndReappears(t *testing.T) {
 	}
 
 	d.closeLid(t)
-	if got := countCalls(d.mock, "swaymsg", "output", "eDP-1", "disable"); got != 3 {
+	if got := d.mock.counted("swaymsg", "output", "eDP-1", "disable"); got != 3 {
 		t.Errorf("expected 3rd disable after re-acquire, got %d", got)
 	}
 	d.openLid(t)
-	if got := countCalls(d.mock, "swaymsg", "output", "eDP-1", "enable"); got != 3 {
+	if got := d.mock.counted("swaymsg", "output", "eDP-1", "enable"); got != 3 {
 		t.Errorf("expected 3rd enable after re-acquire, got %d", got)
 	}
 }
@@ -341,8 +338,9 @@ func TestIntegrationLidClosedAtDaemonStartup(t *testing.T) {
 		hdmiPresent:      true,
 	})
 
-	// Wait until the initial "closed" state has been processed.
-	d.closeLid(t)
+	// Wait until the initial "closed" state callback has been processed
+	// (the state file already says closed, so there is nothing to flip).
+	d.rec.wait(t, []LidState{LidClosed})
 
 	// The action ran on startup: the internal display was disabled
 	// (external monitor connected).
@@ -405,11 +403,28 @@ func TestIntegrationActionChangeWhileLidClosed(t *testing.T) {
 			}
 
 			// The new action must not run on lid open.
-			if d.mock.called("swaylock", "-f") {
-				t.Errorf("swaylock must not run on lid open, got: %v", d.mock.getCalls())
+			switch newAction {
+			case action.ActionLock:
+				if d.mock.called("swaylock", "-f") {
+					t.Errorf("swaylock must not run on lid open, got: %v", d.mock.getCalls())
+				}
+			case action.ActionSleep:
+				if d.mock.called("systemctl", "suspend") {
+					t.Errorf("systemctl suspend must not run on lid open, got: %v", d.mock.getCalls())
+				}
 			}
-			if d.mock.called("systemctl", "suspend") {
-				t.Errorf("systemctl suspend must not run on lid open, got: %v", d.mock.getCalls())
+
+			// The swapped action is live: the next lid close runs it.
+			d.closeLid(t)
+			switch newAction {
+			case action.ActionLock:
+				if !d.mock.called("swaylock", "-f") {
+					t.Errorf("expected swaylock -f on close with the lock action, got: %v", d.mock.getCalls())
+				}
+			case action.ActionSleep:
+				if !d.mock.called("systemctl", "suspend") {
+					t.Errorf("expected systemctl suspend on close with the sleep action, got: %v", d.mock.getCalls())
+				}
 			}
 		})
 	}
@@ -491,11 +506,11 @@ func TestIntegrationExternalMonitorWhileLidClosed(t *testing.T) {
 	// works and leaves the display on.
 	d.fake.setHDMI(true)
 	d.closeLid(t)
-	if got := countCalls(d.mock, "swaymsg", "output", "eDP-1", "disable"); got != 2 {
+	if got := d.mock.counted("swaymsg", "output", "eDP-1", "disable"); got != 2 {
 		t.Errorf("expected 2nd disable after monitor reappears, got %d (calls: %v)", got, d.mock.getCalls())
 	}
 	d.openLid(t)
-	if got := countCalls(d.mock, "swaymsg", "output", "eDP-1", "enable"); got != 2 {
+	if got := d.mock.counted("swaymsg", "output", "eDP-1", "enable"); got != 2 {
 		t.Errorf("expected 2nd enable, got %d (calls: %v)", got, d.mock.getCalls())
 	}
 	if !d.fake.edpEnabled() {

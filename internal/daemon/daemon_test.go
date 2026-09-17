@@ -71,6 +71,29 @@ func (m *mockExec) called(name string, args ...string) bool {
 	return false
 }
 
+// counted counts recorded calls with exactly the given name/args.
+func (m *mockExec) counted(name string, args ...string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n := 0
+	for _, c := range m.calls {
+		if c.name != name || len(c.args) != len(args) {
+			continue
+		}
+		same := true
+		for i := range args {
+			if c.args[i] != args[i] {
+				same = false
+				break
+			}
+		}
+		if same {
+			n++
+		}
+	}
+	return n
+}
+
 func (m *mockExec) exec(name string, args ...string) error {
 	m.mu.Lock()
 	m.calls = append(m.calls, mockCall{name: name, args: args})
