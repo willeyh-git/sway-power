@@ -57,21 +57,24 @@ The daemon owns four components:
 - **Handler** — holds the current action and executes it on lid close
   (`Execute`) / lid open (`OnOpen`).
 
-### First launch (bootstrap)
+### Lid service install (explicit)
 
-The first time you open the GUI it installs the systemd **user** service
-`sway-power.service`:
+Opening the GUI installs nothing. The background lid handler runs as the
+systemd **user** service `sway-power.service`, and installing it is an
+explicit action: `sway-power install`, or the "Install the lid service"
+link in the GUI's Lid Settings section. Both do:
 
-1. writes the unit (with the absolute path of the running binary) to
+1. write the unit (with the absolute path of the running binary) to
    `~/.config/systemd/user/`,
 2. `systemctl --user daemon-reload` + `import-environment` (so the daemon's
    `swaylock`/`swaymsg` children see `WAYLAND_DISPLAY`),
 3. `systemctl --user enable --now sway-power`.
 
-After that, normal GUI startup is load/display/status only — it does **not**
-manage the unit's lifecycle, so a daemon you deliberately stopped stays
-stopped. If you rebuild and the binary path changes, opening the GUI rewrites
-the unit and restarts the service.
+If the unit is unchanged, install is a no-op and does **not** manage the
+unit's lifecycle, so a daemon you deliberately stopped stays stopped. If you
+rebuild and the binary path changes, re-run install: it rewrites the unit
+and restarts the service. `sway-power uninstall` (or the GUI link) stops
+the service, disables it, and removes the unit.
 
 ## Requirements
 
@@ -100,7 +103,7 @@ That requires all of the following:
 - the session environment the child processes need is propagated to the
   user manager:
   - `WAYLAND_DISPLAY` — `swaylock`/`swaymsg` address the compositor through
-    it. The bootstrap runs `systemctl --user import-environment` with it;
+    it. Install runs `systemctl --user import-environment` with it;
     if you ever (re)start the daemon from a different shell than your Sway
     session, re-import it:
     `systemctl --user import-environment WAYLAND_DISPLAY`
@@ -157,7 +160,9 @@ C compiler and the X11/Wayland development libraries. Typical packages:
 ## Usage
 
 ```sh
-sway-power                 # the GUI (first run also installs the daemon)
+sway-power                 # the GUI
+sway-power install         # install + start the lid handler service
+sway-power uninstall       # stop, disable, and remove the lid handler service
 sway-power daemon          # the headless daemon (normally run by systemd, not by you)
 sway-power -debug daemon   # -debug goes before the subcommand
 ```
@@ -193,18 +198,19 @@ is the background lid handler, *not* the GUI.
   light/dark mode and each color (accent, background, label, button states,
   …). Any field left empty falls back to the built-in palette. See
   `internal/config/config.go` for the full list.
-- **Unit file** — `~/.config/systemd/user/sway-power.service` (managed by the
-  bootstrap; the template lives at `internal/bootstrap/sway-power.service`).
+- **Unit file** — `~/.config/systemd/user/sway-power.service` (managed by `sway-power install`/`uninstall`; the template lives at
+  `internal/bootstrap/sway-power.service`).
 
 ## Project layout
 
 ```
-cmd/sway-power/        entry point: GUI vs `daemon` subcommand
+cmd/sway-power/        entry point: GUI vs `daemon`/`install`/`uninstall`
+                       subcommands
 internal/
   ui/                  Fyne window: battery, power profiles, lid buttons
   daemon/              the background lid handler (inhibitor, monitor,
                        preferences watcher, handler)
-  bootstrap/           one-time systemd user-service install
+  bootstrap/           explicit systemd user-service install/uninstall
   lid/action/          lock / sleep / nothing action implementations
   power/               power-profiles-daemon / tuned-ppd client
   battery/             /sys/class/power_supply reader

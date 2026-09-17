@@ -84,8 +84,11 @@ func Uninstall() error {
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(unitPath); os.IsNotExist(err) {
-		return nil // already uninstalled
+	if _, err := os.Stat(unitPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil // already uninstalled
+		}
+		return fmt.Errorf("bootstrap: stat unit: %w", err)
 	}
 
 	// Best effort: the unit may be inactive or unknown to the user manager.

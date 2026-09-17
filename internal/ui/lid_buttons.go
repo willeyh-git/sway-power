@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image/color"
 	"os"
 	"os/exec"
@@ -36,6 +37,7 @@ type lidCloseButtons struct {
 	label         fyne.CanvasObject
 	current       string
 	installed     bool
+	inFlight      bool
 	log           *logger.Logger
 }
 
@@ -135,13 +137,19 @@ func (mgr *lidCloseButtons) rebuildSection() {
 }
 
 // install runs the explicit service install (same code path as
-// `sway-power install`) and then reveals the lid options.
+// `sway-power install`) and then reveals the lid options. Taps are
+// ignored while an install/uninstall is in flight so two operations can
+// never interleave.
 func (mgr *lidCloseButtons) install() {
+	if mgr.inFlight {
+		return
+	}
+	mgr.inFlight = true
 	mgr.status.SetText("Installing the lid service…")
 	go func() {
 		execPath, err := os.Executable()
 		if err == nil {
-			execPath, _ = filepath.Abs(execPath)
+			execPath, err = filepath.Abs(execPath)
 		}
 		var installErr error
 		if err == nil {
@@ -150,9 +158,10 @@ func (mgr *lidCloseButtons) install() {
 			installErr = err
 		}
 		fyne.Do(func() {
+			mgr.inFlight = false
 			if installErr != nil {
 				mgr.log.Printf("install: %v", installErr)
-				mgr.status.SetText("Install failed — see logs")
+				mgr.status.SetText(fmt.Sprintf("Install failed: %v", installErr))
 				return
 			}
 			mgr.installed = true
@@ -165,13 +174,18 @@ func (mgr *lidCloseButtons) install() {
 // uninstall removes the service (same code path as `sway-power
 // uninstall`) and hides the lid options again.
 func (mgr *lidCloseButtons) uninstall() {
+	if mgr.inFlight {
+		return
+	}
+	mgr.inFlight = true
 	mgr.status.SetText("Uninstalling the lid service…")
 	go func() {
 		err := bootstrap.Uninstall()
 		fyne.Do(func() {
+			mgr.inFlight = false
 			if err != nil {
 				mgr.log.Printf("uninstall: %v", err)
-				mgr.status.SetText("Uninstall failed — see logs")
+				mgr.status.SetText(fmt.Sprintf("Uninstall failed: %v", err))
 				return
 			}
 			mgr.installed = false
