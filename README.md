@@ -161,7 +161,7 @@ C compiler and the X11/Wayland development libraries. Typical packages:
 
 - Fedora: `sudo dnf install gcc make wayland-devel`
 - Arch: `sudo pacman -S base-devel wayland`
-- Debian/Ubuntu: `sudo apt install gcc libgl1-mesa-dev xorg-dev`
+- Debian/Ubuntu: `sudo apt install gcc libgl1-mesa-dev xorg-dev libwayland-dev`
 
 ## Usage
 
