@@ -92,9 +92,12 @@ func hideInternalDisplay() error {
 	return errors.Join(errs...)
 }
 
-// showInternalDisplay re-enables internal outputs that are currently
+// ShowInternalDisplay re-enables internal outputs that are currently
 // disabled (e.g. after the lid was closed with "nothing" selected).
-func showInternalDisplay() error {
+// Display ownership is tracked by the daemon handler, which calls this on
+// lid open whenever sway-power disabled the internal display —
+// independent of the currently configured action.
+func ShowInternalDisplay() error {
 	outputs, err := getOutputs()
 	if err != nil {
 		return err

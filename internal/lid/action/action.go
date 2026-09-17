@@ -45,14 +45,15 @@ func (a Action) Execute() error {
 }
 
 // OnOpen runs the action for a lid open event.
-// For "nothing" the internal display is re-enabled if it was turned off.
+//
+// Re-enabling the internal display is deliberately NOT done here: the daemon
+// handler tracks whether sway-power disabled it (internalDisplayDisabledByUs)
+// and restores it on lid open regardless of the current action. That keeps
+// display ownership independent of the action — e.g. if the user switches
+// nothing → lock/sleep while the lid is closed, the panel is still restored
+// on open.
 func (a Action) OnOpen() error {
-	switch a {
-	case ActionNothing:
-		return showInternalDisplay()
-	default:
-		return nil
-	}
+	return nil
 }
 
 // ExecFunc is a function signature for executing commands.

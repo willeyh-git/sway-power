@@ -1,8 +1,33 @@
 package action
 
 import (
+	"os/exec"
 	"testing"
 )
+
+func TestOnOpenDoesNotTouchDisplays(t *testing.T) {
+	// Re-enabling the internal display is owned by the daemon handler
+	// (internalDisplayDisabledByUs), not by the actions — so no action may
+	// query sway outputs on lid open.
+	for _, a := range []Action{ActionLock, ActionSleep, ActionNothing} {
+		t.Run(string(a), func(t *testing.T) {
+			called := false
+			orig := SwaymsgCmd
+			SwaymsgCmd = func(args ...string) *exec.Cmd {
+				called = true
+				return exec.Command("true")
+			}
+			t.Cleanup(func() { SwaymsgCmd = orig })
+
+			if err := a.OnOpen(); err != nil {
+				t.Fatalf("OnOpen() = %v, want nil", err)
+			}
+			if called {
+				t.Error("OnOpen must not query sway outputs")
+			}
+		})
+	}
+}
 
 func TestActionValidate(t *testing.T) {
 	valid := []Action{
