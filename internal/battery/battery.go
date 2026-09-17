@@ -172,11 +172,11 @@ func chargeDuration(charge, current float64) time.Duration {
 }
 
 // readSizeWh reads the battery size in Wh.
-// Prefers energy_full (1/10 Wh units), falls back to
+// Prefers energy_full (µWh units), falls back to
 // charge_full (µAh) × voltage_now.
 func readSizeWh(path string) float64 {
 	if energy, ok := readFloatFile(path, "energy_full"); ok {
-		return energy / 10
+		return energy / 1e6
 	}
 	chargeFull, ok := readFloatFile(path, "charge_full")
 	if !ok {

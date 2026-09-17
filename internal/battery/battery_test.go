@@ -84,9 +84,9 @@ func TestReadTimeLeftUnknownValues(t *testing.T) {
 }
 
 func TestReadSizeWhFromEnergyFull(t *testing.T) {
-	// energy_full is in 1/10 Wh units.
+	// energy_full is in µWh units.
 	path := writeBattery(t, map[string]string{
-		"energy_full": "580", // 580/10 → 58.0 Wh
+		"energy_full": "58000000", // 58000000/1e6 → 58.0 Wh
 	})
 
 	got := readSizeWh(path)
