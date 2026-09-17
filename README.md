@@ -147,8 +147,13 @@ attribute directly.
 ## Build
 
 ```sh
-go build -o sway-power ./cmd/sway-power
+make build               # = go build -trimpath -ldflags "-X main.version=…";
+                         # version from `git describe` (the git tag)
 ```
+
+(Plain `go build -o sway-power ./cmd/sway-power` also works, but the binary
+then reports `version: dev` — the Makefile target is the one that matches
+releases.)
 
 The GUI is built with [Fyne](https://fyne.io/), so the desktop build needs a
 C compiler and the X11/Wayland development libraries. Typical packages:
