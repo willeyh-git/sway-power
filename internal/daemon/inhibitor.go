@@ -304,8 +304,11 @@ func connectSystemBus() (busConn, error) {
 	// alive.
 	sigCh := make(chan *dbus.Signal)
 	conn.Signal(sigCh)
+	// Note: no WithMatchOption("type", "signal") here — AddMatchSignal
+	// already prepends type='signal' internally. Passing it explicitly
+	// produces a rule with a duplicate key, which dbus-broker rejects
+	// with "Invalid match rule" (legacy dbus-daemon tolerated it).
 	err = conn.AddMatchSignal(
-		dbus.WithMatchOption("type", "signal"),
 		dbus.WithMatchInterface("org.freedesktop.DBus"),
 		dbus.WithMatchMember("NameOwnerChanged"),
 	)
