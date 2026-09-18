@@ -226,7 +226,9 @@ func TestHandlerActionSwapAtomicity(t *testing.T) {
 	errCh := make(chan error, 1)
 
 	// Start a goroutine that continuously swaps actions.
+	swapDone := make(chan struct{})
 	go func() {
+		defer close(swapDone)
 		actions := []action.Action{
 			action.ActionLock,
 			action.ActionSleep,
@@ -263,6 +265,9 @@ func TestHandlerActionSwapAtomicity(t *testing.T) {
 
 	wg.Wait()
 	close(done)
+	// Join the swap goroutine: it may still be inside SetAction (which
+	// logs via t) when close(done) returns; t must not outlive the test.
+	<-swapDone
 
 	// Check for errors.
 	select {
